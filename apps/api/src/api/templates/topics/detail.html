@@ -10,17 +10,20 @@
   </div>
 
   <div class="topic-detail-columns">
-    <section class="syllabus-panel" id="syllabus-panel">
-      <h2>Syllabus</h2>
+    <nav class="syllabus-nav" id="syllabus-panel">
+      <p class="syllabus-nav-label">Syllabus</p>
       <div id="syllabus-items-list"
            hx-get="/topics/{{ topic.id }}/syllabus"
            hx-trigger="load">
-        <p class="loading">Generating syllabus…</p>
+        <div class="syllabus-generating">
+          <span class="spinner"></span>
+          <span>Loading…</span>
+        </div>
       </div>
-    </section>
+    </nav>
 
     <section class="reading-panel" id="reading-panel">
-      <p class="empty-state">Select a topic to read.</p>
+      <p class="reading-empty">Select a topic from the syllabus to start reading.</p>
     </section>
   </div>
 </div>

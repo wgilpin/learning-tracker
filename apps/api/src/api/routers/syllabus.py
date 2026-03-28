@@ -30,7 +30,9 @@ async def get_syllabus(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     items = await list_top_level_items(session, topic_id)
-    return templates.TemplateResponse(request, "topics/_syllabus_panel.html", {"items": items})
+    return templates.TemplateResponse(
+        request, "topics/_syllabus_panel.html", {"items": items, "topic_id": topic_id}
+    )
 
 
 @router.get("/syllabus-items/{item_id}/children", response_class=HTMLResponse)
@@ -40,7 +42,6 @@ async def get_children(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     children = await list_children(session, item_id)
-    # Annotate each child: is it a leaf (no children of its own)?
     children_with_flags: list[tuple] = []
     for child in children:
         grandchildren = await list_children(session, child.id)
@@ -67,4 +68,4 @@ async def patch_status(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    return templates.TemplateResponse(request, "syllabus/_item_row.html", {"item": item})
+    return templates.TemplateResponse(request, "syllabus/_child_item.html", {"child": item, "is_leaf": True})

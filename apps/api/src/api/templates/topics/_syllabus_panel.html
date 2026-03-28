@@ -1,18 +1,26 @@
 {% if items %}
-<ol class="syllabus-tree">
+<ul class="syllabus-tree">
   {% for item in items %}
-  <li class="syllabus-item" id="item-{{ item.id }}">
-    <button class="syllabus-item-title"
+  <li class="syllabus-section" id="item-{{ item.id }}">
+    <button class="syllabus-section-btn"
             hx-get="/syllabus-items/{{ item.id }}/children"
             hx-target="#children-{{ item.id }}"
-            hx-swap="innerHTML">
-      {{ item.title }}
-      {% if item.description %}<span class="syllabus-item-desc">{{ item.description }}</span>{% endif %}
+            hx-swap="innerHTML"
+            hx-on::before-request="const c=document.getElementById('children-{{ item.id }}');if(c.innerHTML.trim()){c.innerHTML='';event.preventDefault();}">
+      <span class="syllabus-chevron">▶</span>
+      <span class="syllabus-section-title">{{ item.title }}</span>
     </button>
-    <ol class="children-list" id="children-{{ item.id }}"></ol>
+    <ul class="syllabus-children" id="children-{{ item.id }}"></ul>
   </li>
   {% endfor %}
-</ol>
+</ul>
 {% else %}
-<p class="empty-state">Syllabus not yet generated.</p>
+<div class="syllabus-generating"
+     hx-get="/topics/{{ topic_id }}/syllabus"
+     hx-trigger="every 3s"
+     hx-target="this"
+     hx-swap="outerHTML">
+  <span class="spinner"></span>
+  <span>Generating syllabus…</span>
+</div>
 {% endif %}
