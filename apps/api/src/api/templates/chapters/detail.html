@@ -8,7 +8,7 @@
     {% for paragraph in chapter.content.split('\n\n') %}
     {% if paragraph.strip() %}
     <div class="chapter-paragraph" id="para-{{ loop.index }}">
-      <p>{{ paragraph }}</p>
+      {{ paragraph | md | safe }}
       <button class="comment-trigger btn btn-sm"
               hx-get="/chapters/{{ chapter.id }}/comments/form?anchor=para-{{ loop.index }}"
               hx-target="#comments-para-{{ loop.index }}"

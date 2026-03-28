@@ -1,17 +1,6 @@
 <div class="chapter-inline">
   <h3 class="chapter-title">{{ item.title }}</h3>
   <div class="chapter-content">
-    {% for block in chapter.content.split('\n\n') %}
-    {% set block = block.strip() %}
-    {% if block %}
-      {% if block.startswith('## ') %}
-      <h2>{{ block[3:] }}</h2>
-      {% elif block.startswith('# ') %}
-      <h2>{{ block[2:] }}</h2>
-      {% else %}
-      <p>{{ block }}</p>
-      {% endif %}
-    {% endif %}
-    {% endfor %}
+    {{ chapter.content | md | safe }}
   </div>
 </div>

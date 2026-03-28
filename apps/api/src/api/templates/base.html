@@ -5,7 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Academic Learning Tracker{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" crossorigin="anonymous">
   <script src="https://unpkg.com/htmx.org@2.0.3" integrity="sha384-0895/pl2MU10Hqc6jd4RvrthNlDiE9U1tWmX7WRESftEDRosgxNsQG/Ze9YMRzHq" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script>
+    function renderMath(root) {
+      var scope = root || document;
+      scope.querySelectorAll(".math.inline").forEach(function(el) {
+        katex.render(el.textContent, el, { throwOnError: false });
+      });
+      scope.querySelectorAll(".math.block").forEach(function(el) {
+        katex.render(el.textContent, el, { displayMode: true, throwOnError: false });
+      });
+    }
+    document.addEventListener("DOMContentLoaded", function() { renderMath(); });
+    document.addEventListener("htmx:afterSwap", function(e) { renderMath(e.detail.target); });
+  </script>
 </head>
 <body hx-boost="true">
   <header class="site-header">

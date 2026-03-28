@@ -3,22 +3,18 @@
 from __future__ import annotations
 
 import logging
-import os as _os
 import uuid
 
+from api.templates_config import templates
 from documentlm_core.db.session import get_session
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-_templates_dir = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "templates")
-templates = Jinja2Templates(directory=_templates_dir)
 
 
 @router.get("/syllabus-items/{item_id}/chapter", response_class=HTMLResponse)
