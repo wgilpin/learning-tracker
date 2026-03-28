@@ -1,0 +1,27 @@
+<div class="margin-comment {% if comment.status == 'RESOLVED' %}resolved{% else %}open{% endif %}"
+     id="comment-{{ comment.id }}">
+  <div class="margin-comment-question">
+    <blockquote>{{ comment.content }}</blockquote>
+  </div>
+
+  {% if comment.response %}
+  <div class="margin-comment-response">
+    <p>{{ comment.response }}</p>
+  </div>
+  {% else %}
+  <div class="margin-comment-pending">
+    <span class="spinner"></span> Generating response…
+  </div>
+  {% endif %}
+
+  {% if comment.status == 'OPEN' %}
+  <button class="btn btn-sm btn-resolve"
+          hx-patch="/comments/{{ comment.id }}/resolve"
+          hx-target="closest .margin-comment"
+          hx-swap="outerHTML">
+    Resolve
+  </button>
+  {% else %}
+  <span class="resolved-badge">Resolved</span>
+  {% endif %}
+</div>

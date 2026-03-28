@@ -1,0 +1,22 @@
+{% if entries %}
+<ul class="bibliography-list">
+  {% for source in entries %}
+  <li class="bibliography-entry">
+    <span class="bib-title">{{ source.title }}</span>
+    {% if source.authors %}
+    <span class="bib-authors">{{ source.authors | join(', ') }}</span>
+    {% endif %}
+    {% if source.publication_date %}
+    <span class="bib-year">({{ source.publication_date.year }})</span>
+    {% endif %}
+    {% if source.doi %}
+    <a href="https://doi.org/{{ source.doi }}" class="bib-doi" target="_blank" rel="noopener">DOI</a>
+    {% elif source.url %}
+    <a href="{{ source.url }}" class="bib-url" target="_blank" rel="noopener">Link</a>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty-state">No verified sources yet.</p>
+{% endif %}

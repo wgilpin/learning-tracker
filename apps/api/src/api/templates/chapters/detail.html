@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}{{ chapter.syllabus_item_id }} — Chapter{% endblock %}
+
+{% block content %}
+<div class="chapter-layout">
+  <article class="chapter-content" id="chapter-{{ chapter.id }}">
+    {% for paragraph in chapter.content.split('\n\n') %}
+    {% if paragraph.strip() %}
+    <div class="chapter-paragraph" id="para-{{ loop.index }}">
+      <p>{{ paragraph }}</p>
+      <button class="comment-trigger btn btn-sm"
+              hx-get="/chapters/{{ chapter.id }}/comments/form?anchor=para-{{ loop.index }}"
+              hx-target="#comments-para-{{ loop.index }}"
+              hx-swap="beforeend">
+        +
+      </button>
+      <div class="margin-comments" id="comments-para-{{ loop.index }}">
+        {% for comment in chapter.margin_comments if comment.paragraph_anchor == 'para-' ~ loop.index %}
+        {% include "chapters/_margin_comment.html" %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </article>
+
+  <aside class="chapter-citations">
+    <h3>Sources</h3>
+    {% if chapter.sources %}
+    <ul class="citation-list">
+      {% for source in chapter.sources %}
+      <li class="citation">{% include "chapters/_citation.html" %}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty-state">No citations yet.</p>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}{{ topic.title }} — Learning Tracker{% endblock %}
+
+{% block content %}
+<div class="topic-detail">
+  <div class="topic-detail-header">
+    <h1>{{ topic.title }}</h1>
+    {% if topic.description %}<p class="topic-description">{{ topic.description }}</p>{% endif %}
+  </div>
+
+  <div class="topic-detail-columns">
+    <section class="syllabus-panel" id="syllabus-panel">
+      <h2>Syllabus</h2>
+      <div id="syllabus-items-list"
+           hx-get="/topics/{{ topic.id }}/syllabus"
+           hx-trigger="load">
+        <p class="loading">Generating syllabus…</p>
+      </div>
+    </section>
+
+    <section class="reading-panel" id="reading-panel">
+      <p class="empty-state">Select a topic to read.</p>
+    </section>
+  </div>
+</div>
+{% endblock %}

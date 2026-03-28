@@ -1,0 +1,12 @@
+<div class="chapter-inline">
+  <h3 class="chapter-title">{{ item.title }}</h3>
+  <article class="chapter-content" id="chapter-{{ chapter.id }}">
+    {% for paragraph in chapter.content.split('\n\n') %}
+    {% if paragraph.strip() %}
+    <div class="chapter-paragraph" id="para-{{ loop.index }}">
+      <p>{{ paragraph }}</p>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </article>
+</div>

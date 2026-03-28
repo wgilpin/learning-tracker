@@ -1,0 +1,196 @@
+"""Chapters router — stub, fully implemented in Phase 4 (US2) and Phase 6 (US4)."""
+
+from __future__ import annotations
+
+import logging
+import os as _os
+import uuid
+
+from documentlm_core.db.session import get_session
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import Response
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+_templates_dir = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "templates")
+templates = Jinja2Templates(directory=_templates_dir)
+
+
+@router.get("/syllabus-items/{item_id}/chapter", response_class=HTMLResponse)
+async def get_or_trigger_chapter(
+    request: Request,
+    item_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    from documentlm_core.db.models import AtomicChapter, SyllabusItem
+    from documentlm_core.services.chapter import get_chapter
+    from sqlalchemy import select
+
+    item = (await session.execute(select(SyllabusItem).where(SyllabusItem.id == item_id))).scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="SyllabusItem not found")
+
+    existing = (await session.execute(
+        select(AtomicChapter).where(AtomicChapter.syllabus_item_id == item_id)
+    )).scalar_one_or_none()
+
+    if existing is not None:
+        chapter = await get_chapter(session, existing.id)
+        return templates.TemplateResponse(request, "chapters/_inline.html", {"chapter": chapter, "item": item})
+
+    import asyncio
+    asyncio.create_task(_draft_chapter_bg(item_id, item.topic_id, item.title))
+    return templates.TemplateResponse(request, "chapters/_generating.html", {"item_id": item_id})
+
+
+@router.post("/syllabus-items/{item_id}/chapter", response_class=HTMLResponse)
+async def post_chapter_draft(
+    request: Request,
+    item_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Request a chapter draft for a SyllabusItem whose parent already has a chapter."""
+    from documentlm_core.db.models import AtomicChapter, SyllabusItem
+    from sqlalchemy import select
+
+    result = await session.execute(select(SyllabusItem).where(SyllabusItem.id == item_id))
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="SyllabusItem not found")
+
+    if item.parent_id is not None:
+        parent_ch = await session.execute(
+            select(AtomicChapter).where(AtomicChapter.syllabus_item_id == item.parent_id)
+        )
+        if parent_ch.scalar_one_or_none() is None:
+            raise HTTPException(status_code=409, detail="Parent chapter not yet drafted")
+
+    from documentlm_core.db.models import AtomicChapter
+    from sqlalchemy import select as _s2
+
+    existing = await session.execute(
+        _s2(AtomicChapter).where(AtomicChapter.syllabus_item_id == item_id)
+    )
+    chapter = existing.scalar_one_or_none()
+
+    if chapter is None:
+        import asyncio
+
+        asyncio.create_task(_draft_chapter_bg(item_id, item.topic_id, item.title))
+
+    return templates.TemplateResponse(
+        request, "chapters/_status_card.html", {"item_id": item_id, "chapter": chapter}
+    )
+
+
+@router.get("/chapters/{chapter_id}", response_class=HTMLResponse)
+async def get_chapter(
+    request: Request,
+    chapter_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    from documentlm_core.services.chapter import get_chapter as _get_chapter
+
+    chapter = await _get_chapter(session, chapter_id)
+    if chapter is None:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    if request.headers.get("HX-Request"):
+        return templates.TemplateResponse(request, "chapters/detail.html", {"chapter": chapter})
+    return templates.TemplateResponse(request, "chapters/detail.html", {"chapter": chapter})
+
+
+@router.get("/chapters/{chapter_id}/status")
+async def chapter_status(
+    chapter_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+) -> JSONResponse:
+    from documentlm_core.db.models import AtomicChapter
+    from sqlalchemy import select
+
+    result = await session.execute(select(AtomicChapter).where(AtomicChapter.id == chapter_id))
+    chapter = result.scalar_one_or_none()
+    if chapter is None:
+        return JSONResponse({"status": "pending"})
+    return JSONResponse({"status": "complete"})
+
+
+@router.post("/chapters/{chapter_id}/comments", response_class=HTMLResponse)
+async def post_comment(
+    request: Request,
+    chapter_id: uuid.UUID,
+    paragraph_anchor: str = Form(...),
+    content: str = Form(...),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    import asyncio
+
+    from documentlm_core.schemas import MarginCommentCreate
+    from documentlm_core.services.margin_comment import create_comment
+
+    try:
+        comment = await create_comment(
+            session,
+            chapter_id,
+            MarginCommentCreate(paragraph_anchor=paragraph_anchor, content=content),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    asyncio.create_task(_respond_to_comment_bg(comment.id, chapter_id))
+
+    return templates.TemplateResponse(request, "chapters/_margin_comment.html", {"comment": comment})
+
+
+@router.patch("/comments/{comment_id}/resolve", response_class=HTMLResponse)
+async def resolve_comment(
+    request: Request,
+    comment_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    from documentlm_core.services.margin_comment import resolve_comment as _resolve
+
+    try:
+        comment = await _resolve(session, comment_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return templates.TemplateResponse(request, "chapters/_margin_comment.html", {"comment": comment})
+
+
+async def _draft_chapter_bg(
+    item_id: uuid.UUID,
+    topic_id: uuid.UUID,
+    item_title: str,
+) -> None:
+    from documentlm_core.agents.chapter_scribe import run_chapter_scribe
+    from documentlm_core.db.session import AsyncSessionFactory
+    from documentlm_core.services.chapter import create_chapter
+
+    async with AsyncSessionFactory() as session:
+        try:
+            content = await run_chapter_scribe(item_id, item_title, topic_id, session)
+            await create_chapter(session, item_id, topic_id, content, [])
+            await session.commit()
+            logger.info("Chapter drafted for item_id=%s", item_id)
+        except Exception:
+            logger.exception("Chapter drafting failed for item_id=%s", item_id)
+            await session.rollback()
+
+
+async def _respond_to_comment_bg(comment_id: uuid.UUID, chapter_id: uuid.UUID) -> None:
+    from documentlm_core.agents.chapter_scribe import respond_to_comment
+    from documentlm_core.db.session import AsyncSessionFactory
+    from documentlm_core.services.margin_comment import attach_response
+
+    async with AsyncSessionFactory() as session:
+        try:
+            response_text = await respond_to_comment(comment_id, chapter_id, session)
+            await attach_response(session, comment_id, response_text)
+            await session.commit()
+        except Exception:
+            logger.exception("Comment response failed for comment_id=%s", comment_id)
+            await session.rollback()

@@ -1,0 +1,31 @@
+<li class="syllabus-item {% if item.is_blocked %}blocked{% endif %}" id="item-{{ item.id }}">
+  <div class="syllabus-item-content">
+    <span class="status-badge status-{{ item.status | lower }}">{{ item.status }}</span>
+    <span class="syllabus-item-title">{{ item.title }}</span>
+    {% if item.description %}
+    <span class="syllabus-item-desc">{{ item.description }}</span>
+    {% endif %}
+    {% if item.is_blocked %}
+    <span class="blocked-overlay">Blocked</span>
+    {% endif %}
+  </div>
+  <div class="syllabus-item-actions">
+    <select hx-patch="/syllabus-items/{{ item.id }}/status"
+            hx-target="closest .syllabus-item"
+            hx-swap="outerHTML"
+            hx-include="this"
+            name="status">
+      <option value="UNRESEARCHED" {% if item.status == 'UNRESEARCHED' %}selected{% endif %}>Unresearched</option>
+      <option value="IN_PROGRESS" {% if item.status == 'IN_PROGRESS' %}selected{% endif %}>In Progress</option>
+      <option value="MASTERED" {% if item.status == 'MASTERED' %}selected{% endif %}>Mastered</option>
+    </select>
+    {% if not item.is_blocked %}
+    <button hx-post="/syllabus-items/{{ item.id }}/chapter"
+            hx-target="#chapter-panel"
+            hx-swap="innerHTML"
+            class="btn btn-sm">
+      Draft Chapter
+    </button>
+    {% endif %}
+  </div>
+</li>

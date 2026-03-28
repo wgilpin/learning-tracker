@@ -1,0 +1,7 @@
+<div class="chapter-generating"
+     hx-get="/syllabus-items/{{ item_id }}/chapter"
+     hx-trigger="every 3s"
+     hx-target="#reading-panel"
+     hx-swap="innerHTML">
+  <p class="loading">Generating chapter…</p>
+</div>

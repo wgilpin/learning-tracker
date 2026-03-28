@@ -1,0 +1,12 @@
+<span class="citation-title">{{ source.title }}</span>
+{% if source.authors %}
+<span class="citation-authors">{{ source.authors | join(', ') }}</span>
+{% endif %}
+{% if source.publication_date %}
+<span class="citation-date">({{ source.publication_date.year }})</span>
+{% endif %}
+{% if source.doi %}
+<a href="https://doi.org/{{ source.doi }}" class="citation-doi" target="_blank" rel="noopener">DOI</a>
+{% elif source.url %}
+<a href="{{ source.url }}" class="citation-url" target="_blank" rel="noopener">Link</a>
+{% endif %}

@@ -1,0 +1,18 @@
+{% if items %}
+<ol class="syllabus-tree">
+  {% for item in items %}
+  <li class="syllabus-item" id="item-{{ item.id }}">
+    <button class="syllabus-item-title"
+            hx-get="/syllabus-items/{{ item.id }}/children"
+            hx-target="#children-{{ item.id }}"
+            hx-swap="innerHTML">
+      {{ item.title }}
+      {% if item.description %}<span class="syllabus-item-desc">{{ item.description }}</span>{% endif %}
+    </button>
+    <ol class="children-list" id="children-{{ item.id }}"></ol>
+  </li>
+  {% endfor %}
+</ol>
+{% else %}
+<p class="empty-state">Syllabus not yet generated.</p>
+{% endif %}

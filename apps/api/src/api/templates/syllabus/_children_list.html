@@ -1,0 +1,26 @@
+{% if children_with_flags %}
+{% for child, is_leaf in children_with_flags %}
+<li class="syllabus-child-item {% if is_leaf %}leaf{% endif %}">
+  {% if is_leaf %}
+  <button class="syllabus-item-title"
+          hx-get="/syllabus-items/{{ child.id }}/chapter"
+          hx-target="#reading-panel"
+          hx-swap="innerHTML">
+    {{ child.title }}
+    {% if child.description %}<span class="syllabus-item-desc">{{ child.description }}</span>{% endif %}
+  </button>
+  {% else %}
+  <button class="syllabus-item-title"
+          hx-get="/syllabus-items/{{ child.id }}/children"
+          hx-target="#children-{{ child.id }}"
+          hx-swap="innerHTML">
+    {{ child.title }}
+    {% if child.description %}<span class="syllabus-item-desc">{{ child.description }}</span>{% endif %}
+  </button>
+  <ol class="children-list" id="children-{{ child.id }}"></ol>
+  {% endif %}
+</li>
+{% endfor %}
+{% else %}
+<li class="empty-state">No sub-topics.</li>
+{% endif %}

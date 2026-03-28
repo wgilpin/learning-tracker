@@ -1,0 +1,19 @@
+<form hx-post="/topics" hx-target="body" hx-push-url="true" class="new-topic-form">
+  <div class="form-group">
+    <label for="title">Title</label>
+    <input id="title" name="title" type="text" required autofocus placeholder="e.g. Linear Algebra">
+  </div>
+  <div class="form-group">
+    <label for="description">Description <span class="optional">(optional)</span></label>
+    <textarea id="description" name="description" rows="3" placeholder="What do you want to learn?"></textarea>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Create Topic</button>
+    <button type="button" class="btn btn-secondary"
+            hx-get=""
+            hx-target="#new-topic-form"
+            hx-swap="innerHTML">
+      Cancel
+    </button>
+  </div>
+</form>

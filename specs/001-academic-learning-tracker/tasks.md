@@ -33,14 +33,14 @@ testing. Each story produces a complete, independently testable increment.
 
 **Purpose**: `uv` workspace scaffolding, Docker infrastructure, tooling config.
 
-- [ ] T001 Create root `pyproject.toml` defining the `uv` workspace with members `packages/documentlm-core` and `apps/api`
-- [ ] T002 [P] Create `packages/documentlm-core/pyproject.toml` with dependencies: `sqlalchemy[asyncio]`, `alembic`, `pydantic`, `pgvector`, `asyncpg`, `httpx`, `google-adk`; dev deps: `pytest`, `pytest-asyncio`, `pytest-mock`, `mypy`, `ruff`
-- [ ] T003 [P] Create `apps/api/pyproject.toml` with dependencies: `fastapi`, `uvicorn[standard]`, `jinja2`, `python-multipart`; dev deps: `httpx`, `pytest`, `pytest-asyncio`
-- [ ] T004 [P] Create `docker/compose.yml` defining `db` service (postgres:16 + pgvector, port 5432, named volume `postgres_data`, health check) and `api` service profile
-- [ ] T005 [P] Create `docker/postgres/init.sql` with `CREATE EXTENSION IF NOT EXISTS vector;`
-- [ ] T006 [P] Create `docker/Dockerfile.api` for production image of `apps/api`
-- [ ] T007 [P] Create `.env.example` with `DATABASE_URL`, `GOOGLE_API_KEY`, `LOG_LEVEL`
-- [ ] T008 [P] Create `alembic.ini` pointing to `packages/documentlm_core/src/documentlm_core/db/migrations/` and configure `ruff` + `mypy` sections in root `pyproject.toml`
+- [X] T001 Create root `pyproject.toml` defining the `uv` workspace with members `packages/documentlm-core` and `apps/api`
+- [X] T002 [P] Create `packages/documentlm-core/pyproject.toml` with dependencies: `sqlalchemy[asyncio]`, `alembic`, `pydantic`, `pgvector`, `asyncpg`, `httpx`, `google-adk`; dev deps: `pytest`, `pytest-asyncio`, `pytest-mock`, `mypy`, `ruff`
+- [X] T003 [P] Create `apps/api/pyproject.toml` with dependencies: `fastapi`, `uvicorn[standard]`, `jinja2`, `python-multipart`; dev deps: `httpx`, `pytest`, `pytest-asyncio`
+- [X] T004 [P] Create `docker/compose.yml` defining `db` service (postgres:16 + pgvector, port 5432, named volume `postgres_data`, health check) and `api` service profile
+- [X] T005 [P] Create `docker/postgres/init.sql` with `CREATE EXTENSION IF NOT EXISTS vector;`
+- [X] T006 [P] Create `docker/Dockerfile.api` for production image of `apps/api`
+- [X] T007 [P] Create `.env.example` with `DATABASE_URL`, `GOOGLE_API_KEY`, `LOG_LEVEL`
+- [X] T008 [P] Create `alembic.ini` pointing to `packages/documentlm_core/src/documentlm_core/db/migrations/` and configure `ruff` + `mypy` sections in root `pyproject.toml`
 
 **Checkpoint**: `uv sync --all-packages` succeeds; `docker compose up -d` starts a healthy DB.
 
@@ -53,18 +53,18 @@ factory, Source CRUD, and test fixtures. ALL user story work blocks on this phas
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T009 Create async DB engine + `AsyncSession` factory in `packages/documentlm_core/src/documentlm_core/db/session.py`
-- [ ] T010 Create `packages/documentlm_core/src/documentlm_core/schemas.py` with all enums (`SyllabusStatus`, `SourceStatus`, `CommentStatus`) and all Pydantic `BaseModel` schemas from data-model.md (`TopicCreate`, `TopicRead`, `SyllabusItemCreate`, `SyllabusItemRead`, `SyllabusItemStatusUpdate`, `SourceCreate`, `SourceRead`, `ChapterRead`, `MarginCommentCreate`, `MarginCommentRead`)
-- [ ] T011 [P] Create SQLAlchemy ORM models `Topic` and `VirtualBook` in `packages/documentlm_core/src/documentlm_core/db/models.py`
-- [ ] T012 [P] Add SQLAlchemy ORM models `SyllabusItem` and `SyllabusPrerequisite` to `packages/documentlm_core/src/documentlm_core/db/models.py`
-- [ ] T013 [P] Add SQLAlchemy ORM models `Source` and `ChapterSource` to `packages/documentlm_core/src/documentlm_core/db/models.py`
-- [ ] T014 [P] Add SQLAlchemy ORM models `AtomicChapter`, `MarginComment`, and `ChapterChunk` (pgvector column) to `packages/documentlm_core/src/documentlm_core/db/models.py`
-- [ ] T015 Create Alembic env + initial migration creating all tables and enabling pgvector in `packages/documentlm_core/src/documentlm_core/db/migrations/`
-- [ ] T016 Create FastAPI app factory with lifespan (DB startup check) and `get_session` dependency in `apps/api/src/api/main.py`
-- [ ] T017 [P] Create pytest fixtures (`async_session`, `test_client`, `db_rollback`) in `packages/documentlm_core/tests/conftest.py` and `apps/api/tests/conftest.py`
-- [ ] T018 Write integration test verifying all migrations apply cleanly and pgvector extension exists in `packages/documentlm_core/tests/integration/test_migrations.py`
-- [ ] T019 Create `Source` CRUD service (create with deduplication, list by topic, verify, reject) in `packages/documentlm_core/src/documentlm_core/services/source.py`
-- [ ] T020 [P] Write unit tests for `source.py` service (deduplication logic, status transitions) in `packages/documentlm_core/tests/unit/test_source_service.py`
+- [X] T009 Create async DB engine + `AsyncSession` factory in `packages/documentlm_core/src/documentlm_core/db/session.py`
+- [X] T010 Create `packages/documentlm_core/src/documentlm_core/schemas.py` with all enums (`SyllabusStatus`, `SourceStatus`, `CommentStatus`) and all Pydantic `BaseModel` schemas from data-model.md (`TopicCreate`, `TopicRead`, `SyllabusItemCreate`, `SyllabusItemRead`, `SyllabusItemStatusUpdate`, `SourceCreate`, `SourceRead`, `ChapterRead`, `MarginCommentCreate`, `MarginCommentRead`)
+- [X] T011 [P] Create SQLAlchemy ORM models `Topic` and `VirtualBook` in `packages/documentlm_core/src/documentlm_core/db/models.py`
+- [X] T012 [P] Add SQLAlchemy ORM models `SyllabusItem` and `SyllabusPrerequisite` to `packages/documentlm_core/src/documentlm_core/db/models.py`
+- [X] T013 [P] Add SQLAlchemy ORM models `Source` and `ChapterSource` to `packages/documentlm_core/src/documentlm_core/db/models.py`
+- [X] T014 [P] Add SQLAlchemy ORM models `AtomicChapter`, `MarginComment`, and `ChapterChunk` (pgvector column) to `packages/documentlm_core/src/documentlm_core/db/models.py`
+- [X] T015 Create Alembic env + initial migration creating all tables and enabling pgvector in `packages/documentlm_core/src/documentlm_core/db/migrations/`
+- [X] T016 Create FastAPI app factory with lifespan (DB startup check) and `get_session` dependency in `apps/api/src/api/main.py`
+- [X] T017 [P] Create pytest fixtures (`async_session`, `test_client`, `db_rollback`) in `packages/documentlm_core/tests/conftest.py` and `apps/api/tests/conftest.py`
+- [X] T018 Write integration test verifying all migrations apply cleanly and pgvector extension exists in `packages/documentlm_core/tests/integration/test_migrations.py`
+- [X] T019 Create `Source` CRUD service (create with deduplication, list by topic, verify, reject) in `packages/documentlm_core/src/documentlm_core/services/source.py`
+- [X] T020 [P] Write unit tests for `source.py` service (deduplication logic, status transitions) in `packages/documentlm_core/tests/unit/test_source_service.py`
 
 **Checkpoint**: `uv run alembic upgrade head` succeeds; `uv run pytest packages/documentlm_core/tests/` passes.
 
@@ -80,19 +80,19 @@ syllabus → user views the hierarchical checklist in the UI.
 
 ### Tests for User Story 1 ⚠️ Write FIRST, verify they FAIL before implementing
 
-- [ ] T021 [P] [US1] Write unit tests for cycle detection and bottleneck identification in `packages/documentlm_core/tests/unit/test_syllabus_service.py` (pure functions, no DB)
-- [ ] T022 [P] [US1] Write integration tests for topic creation and syllabus retrieval in `packages/documentlm_core/tests/integration/test_topic_service.py`
-- [ ] T023 [P] [US1] Write integration tests for topic and syllabus routes (POST /topics, GET /topics/{id}, GET /topics/{id}/syllabus) in `apps/api/tests/integration/test_topics_router.py`
+- [X] T021 [P] [US1] Write unit tests for cycle detection and bottleneck identification in `packages/documentlm_core/tests/unit/test_syllabus_service.py` (pure functions, no DB)
+- [X] T022 [P] [US1] Write integration tests for topic creation and syllabus retrieval in `packages/documentlm_core/tests/integration/test_topic_service.py`
+- [X] T023 [P] [US1] Write integration tests for topic and syllabus routes (POST /topics, GET /topics/{id}, GET /topics/{id}/syllabus) in `apps/api/tests/integration/test_topics_router.py`
 
 ### Implementation for User Story 1
 
-- [ ] T024 [US1] Implement `Topic` CRUD (create, get, list) in `packages/documentlm_core/src/documentlm_core/services/topic.py`
-- [ ] T025 [US1] Implement `Syllabus` service — item CRUD, cycle detection (DFS), bottleneck scoring (downstream count), topological sort — in `packages/documentlm_core/src/documentlm_core/services/syllabus.py`
-- [ ] T026 [US1] Implement Syllabus Architect ADK agent (typed tool functions: `create_syllabus_item`, `add_prerequisite`; all external LLM calls mockable) in `packages/documentlm_core/src/documentlm_core/agents/syllabus_architect.py`
-- [ ] T027 [P] [US1] Create Jinja2 templates: `apps/api/src/api/templates/base.html`, `topics/list.html`, `topics/detail.html`, `topics/_syllabus_panel.html`, `topics/_syllabus_item.html`
-- [ ] T028 [US1] Create FastAPI router `apps/api/src/api/routers/topics.py`: `GET /`, `POST /topics`, `GET /topics/{topic_id}`, `GET /topics/{topic_id}/status` (with background task invoking Syllabus Architect)
-- [ ] T029 [US1] Create FastAPI router `apps/api/src/api/routers/syllabus.py`: `GET /topics/{topic_id}/syllabus` returning HTMX partial
-- [ ] T030 [US1] Register `topics` and `syllabus` routers in `apps/api/src/api/main.py`; add structured logging for all agent invocations
+- [X] T024 [US1] Implement `Topic` CRUD (create, get, list) in `packages/documentlm_core/src/documentlm_core/services/topic.py`
+- [X] T025 [US1] Implement `Syllabus` service — item CRUD, cycle detection (DFS), bottleneck scoring (downstream count), topological sort — in `packages/documentlm_core/src/documentlm_core/services/syllabus.py`
+- [X] T026 [US1] Implement Syllabus Architect ADK agent (typed tool functions: `create_syllabus_item`, `add_prerequisite`; all external LLM calls mockable) in `packages/documentlm_core/src/documentlm_core/agents/syllabus_architect.py`
+- [X] T027 [P] [US1] Create Jinja2 templates: `apps/api/src/api/templates/base.html`, `topics/list.html`, `topics/detail.html`, `topics/_syllabus_panel.html`, `topics/_syllabus_item.html`
+- [X] T028 [US1] Create FastAPI router `apps/api/src/api/routers/topics.py`: `GET /`, `POST /topics`, `GET /topics/{topic_id}`, `GET /topics/{topic_id}/status` (with background task invoking Syllabus Architect)
+- [X] T029 [US1] Create FastAPI router `apps/api/src/api/routers/syllabus.py`: `GET /topics/{topic_id}/syllabus` returning HTMX partial
+- [X] T030 [US1] Register `topics` and `syllabus` routers in `apps/api/src/api/main.py`; add structured logging for all agent invocations
 
 **Checkpoint**: Full US1 flow works end-to-end. Cycle detection rejects bad prereqs. All US1 tests pass.
 
@@ -109,17 +109,17 @@ citations. Attempt on a blocked node returns HTTP 409.
 
 ### Tests for User Story 2 ⚠️ Write FIRST, verify they FAIL before implementing
 
-- [ ] T031 [P] [US2] Write unit tests for chapter service (blocking check, context folding logic, citation-only-verified guard) in `packages/documentlm_core/tests/unit/test_chapter_service.py`
-- [ ] T032 [P] [US2] Write integration tests for chapter creation and retrieval in `packages/documentlm_core/tests/integration/test_chapter_service.py`
-- [ ] T033 [P] [US2] Write integration tests for chapter routes (POST draft, GET chapter, GET status, 409 on blocked) in `apps/api/tests/integration/test_chapters_router.py`
+- [X] T031 [P] [US2] Write unit tests for chapter service (blocking check, context folding logic, citation-only-verified guard) in `packages/documentlm_core/tests/unit/test_chapter_service.py`
+- [X] T032 [P] [US2] Write integration tests for chapter creation and retrieval in `packages/documentlm_core/tests/integration/test_chapter_service.py`
+- [X] T033 [P] [US2] Write integration tests for chapter routes (POST draft, GET chapter, GET status, 409 on blocked) in `apps/api/tests/integration/test_chapters_router.py`
 
 ### Implementation for User Story 2
 
-- [ ] T034 [US2] Implement `Chapter` service — blocking guard, context folding (summaries of prior chapters), chapter persist, citation linking (VERIFIED sources only) — in `packages/documentlm_core/src/documentlm_core/services/chapter.py`
-- [ ] T035 [US2] Implement Chapter Scribe ADK agent (typed tools: `draft_chapter`, `fetch_context_summaries`; mocked in tests) in `packages/documentlm_core/src/documentlm_core/agents/chapter_scribe.py`
-- [ ] T036 [P] [US2] Create templates: `apps/api/src/api/templates/chapters/detail.html`, `chapters/_status_card.html`, `chapters/_citation.html`
-- [ ] T037 [US2] Add chapter routes to `apps/api/src/api/routers/chapters.py`: `POST /syllabus-items/{item_id}/chapter`, `GET /chapters/{chapter_id}`, `GET /chapters/{chapter_id}/status`; raise 409 if item is blocked
-- [ ] T038 [US2] Register `chapters` router in `apps/api/src/api/main.py`
+- [X] T034 [US2] Implement `Chapter` service — blocking guard, context folding (summaries of prior chapters), chapter persist, citation linking (VERIFIED sources only) — in `packages/documentlm_core/src/documentlm_core/services/chapter.py`
+- [X] T035 [US2] Implement Chapter Scribe ADK agent (typed tools: `draft_chapter`, `fetch_context_summaries`; mocked in tests) in `packages/documentlm_core/src/documentlm_core/agents/chapter_scribe.py`
+- [X] T036 [P] [US2] Create templates: `apps/api/src/api/templates/chapters/detail.html`, `chapters/_status_card.html`, `chapters/_citation.html`
+- [X] T037 [US2] Add chapter routes to `apps/api/src/api/routers/chapters.py`: `POST /syllabus-items/{item_id}/chapter`, `GET /chapters/{chapter_id}`, `GET /chapters/{chapter_id}/status`; raise 409 if item is blocked
+- [X] T038 [US2] Register `chapters` router in `apps/api/src/api/main.py`
 
 **Checkpoint**: US2 flow works end-to-end. Blocked nodes return 409. Citations only from VERIFIED sources. All US2 tests pass.
 
@@ -135,14 +135,14 @@ prerequisite → subsequent `GET /topics/{id}/syllabus` shows its dependent node
 
 ### Tests for User Story 3 ⚠️ Write FIRST, verify they FAIL before implementing
 
-- [ ] T039 [P] [US3] Write unit tests for status transition and downstream unblocking logic in `packages/documentlm_core/tests/unit/test_status_blocking.py`
-- [ ] T040 [P] [US3] Write integration tests for status update route in `apps/api/tests/integration/test_syllabus_router.py`
+- [X] T039 [P] [US3] Write unit tests for status transition and downstream unblocking logic in `packages/documentlm_core/tests/unit/test_status_blocking.py`
+- [X] T040 [P] [US3] Write integration tests for status update route in `apps/api/tests/integration/test_syllabus_router.py`
 
 ### Implementation for User Story 3
 
-- [ ] T041 [US3] Extend `packages/documentlm_core/src/documentlm_core/services/syllabus.py` with `update_status` function that persists the new status and returns a `SyllabusItemRead` with the derived `is_blocked` flag
-- [ ] T042 [P] [US3] Create template `apps/api/src/api/templates/syllabus/_item_row.html` rendering status badge (unresearched / in-progress / mastered) and blocked overlay
-- [ ] T043 [US3] Add `PATCH /syllabus-items/{item_id}/status` to `apps/api/src/api/routers/syllabus.py` returning updated `_item_row.html` partial
+- [X] T041 [US3] Extend `packages/documentlm_core/src/documentlm_core/services/syllabus.py` with `update_status` function that persists the new status and returns a `SyllabusItemRead` with the derived `is_blocked` flag
+- [X] T042 [P] [US3] Create template `apps/api/src/api/templates/syllabus/_item_row.html` rendering status badge (unresearched / in-progress / mastered) and blocked overlay
+- [X] T043 [US3] Add `PATCH /syllabus-items/{item_id}/status` to `apps/api/src/api/routers/syllabus.py` returning updated `_item_row.html` partial
 
 **Checkpoint**: Changing a prerequisite to MASTERED visually unblocks dependents in the UI without a page reload. All US3 tests pass.
 
@@ -159,15 +159,15 @@ shows resolved state.
 
 ### Tests for User Story 4 ⚠️ Write FIRST, verify they FAIL before implementing
 
-- [ ] T044 [P] [US4] Write unit tests for margin comment service (create, resolve, response attachment) in `packages/documentlm_core/tests/unit/test_margin_comment_service.py`
-- [ ] T045 [P] [US4] Write integration tests for comment routes in `apps/api/tests/integration/test_chapters_router.py`
+- [X] T044 [P] [US4] Write unit tests for margin comment service (create, resolve, response attachment) in `packages/documentlm_core/tests/unit/test_margin_comment_service.py`
+- [X] T045 [P] [US4] Write integration tests for comment routes in `apps/api/tests/integration/test_chapters_router.py`
 
 ### Implementation for User Story 4
 
-- [ ] T046 [US4] Create `MarginComment` service (create comment, attach agent response, resolve) in `packages/documentlm_core/src/documentlm_core/services/margin_comment.py`
-- [ ] T047 [US4] Extend `packages/documentlm_core/src/documentlm_core/agents/chapter_scribe.py` with `respond_to_comment` typed tool function (mockable)
-- [ ] T048 [P] [US4] Create templates: `apps/api/src/api/templates/chapters/_margin_comment.html` (open and resolved states), update `chapters/detail.html` to render per-paragraph comment anchors
-- [ ] T049 [US4] Add `POST /chapters/{chapter_id}/comments` and `PATCH /comments/{comment_id}/resolve` to `apps/api/src/api/routers/chapters.py`
+- [X] T046 [US4] Create `MarginComment` service (create comment, attach agent response, resolve) in `packages/documentlm_core/src/documentlm_core/services/margin_comment.py`
+- [X] T047 [US4] Extend `packages/documentlm_core/src/documentlm_core/agents/chapter_scribe.py` with `respond_to_comment` typed tool function (mockable)
+- [X] T048 [P] [US4] Create templates: `apps/api/src/api/templates/chapters/_margin_comment.html` (open and resolved states), update `chapters/detail.html` to render per-paragraph comment anchors
+- [X] T049 [US4] Add `POST /chapters/{chapter_id}/comments` and `PATCH /comments/{comment_id}/resolve` to `apps/api/src/api/routers/chapters.py`
 
 **Checkpoint**: Margin comment flow works end-to-end. Resolved comments display distinctly. All US4 tests pass.
 
@@ -184,17 +184,17 @@ the queue without duplicates.
 
 ### Tests for User Story 5 ⚠️ Write FIRST, verify they FAIL before implementing
 
-- [ ] T050 [P] [US5] Write unit tests for bibliography aggregation and deduplication in `packages/documentlm_core/tests/unit/test_bibliography_service.py`
-- [ ] T051 [P] [US5] Write integration tests for source queue and bibliography routes in `apps/api/tests/integration/test_sources_router.py`
+- [X] T050 [P] [US5] Write unit tests for bibliography aggregation and deduplication in `packages/documentlm_core/tests/unit/test_bibliography_service.py`
+- [X] T051 [P] [US5] Write integration tests for source queue and bibliography routes in `apps/api/tests/integration/test_sources_router.py`
 
 ### Implementation for User Story 5
 
-- [ ] T052 [US5] Create `Bibliography` service (deduplicated query across all chapters in a VirtualBook, back-link mapping) in `packages/documentlm_core/src/documentlm_core/services/bibliography.py`
-- [ ] T053 [US5] Implement Academic Scout ADK agent (typed tools: `search_arxiv`, `search_youtube`; all HTTP calls via `httpx` and mockable) in `packages/documentlm_core/src/documentlm_core/agents/academic_scout.py`
-- [ ] T054 [P] [US5] Create templates: `apps/api/src/api/templates/sources/queue.html`, `sources/_row.html`, `topics/_bibliography.html`
-- [ ] T055 [US5] Create `apps/api/src/api/routers/sources.py`: `GET /topics/{topic_id}/sources`, `POST /topics/{topic_id}/sources/discover` (background Scout task), `PATCH /sources/{source_id}/verify`, `PATCH /sources/{source_id}/reject`
-- [ ] T056 [US5] Create `apps/api/src/api/routers/bibliography.py`: `GET /topics/{topic_id}/bibliography` returning lazy-loaded HTMX partial
-- [ ] T057 [US5] Register `sources` and `bibliography` routers in `apps/api/src/api/main.py`
+- [X] T052 [US5] Create `Bibliography` service (deduplicated query across all chapters in a VirtualBook, back-link mapping) in `packages/documentlm_core/src/documentlm_core/services/bibliography.py`
+- [X] T053 [US5] Implement Academic Scout ADK agent (typed tools: `search_arxiv`, `search_youtube`; all HTTP calls via `httpx` and mockable) in `packages/documentlm_core/src/documentlm_core/agents/academic_scout.py`
+- [X] T054 [P] [US5] Create templates: `apps/api/src/api/templates/sources/queue.html`, `sources/_row.html`, `topics/_bibliography.html`
+- [X] T055 [US5] Create `apps/api/src/api/routers/sources.py`: `GET /topics/{topic_id}/sources`, `POST /topics/{topic_id}/sources/discover` (background Scout task), `PATCH /sources/{source_id}/verify`, `PATCH /sources/{source_id}/reject`
+- [X] T056 [US5] Create `apps/api/src/api/routers/bibliography.py`: `GET /topics/{topic_id}/bibliography` returning lazy-loaded HTMX partial
+- [X] T057 [US5] Register `sources` and `bibliography` routers in `apps/api/src/api/main.py`
 
 **Checkpoint**: Full bibliography pipeline works. Source deduplication verified. Scout mocked in tests. All US5 tests pass.
 
@@ -204,11 +204,11 @@ the queue without duplicates.
 
 **Purpose**: Hardening, CSS, Docker production config, and final quality gates.
 
-- [ ] T058 [P] Seed `apps/api/src/api/static/style.css` by copying `/Users/will/projects/document-projects/documentLM/static/style.css` verbatim, then add learning-tracker-specific classes on top: `.syllabus-tree`, `.syllabus-item`, `.status-badge` (unresearched/in-progress/mastered colours), `.blocked-overlay`, `.margin-comment` sidebar, `.chapter-content`; also copy `base.html` from `documentLM/src/writer/templates/base.html` and adapt brand name + nav for learning-tracker
-- [ ] T059 Add structured JSON logging middleware to `apps/api/src/api/main.py`: log every request (method, path, status, duration) and catch-all exception handler that logs tracebacks before returning 500
-- [ ] T060 [P] Verify every exception boundary in `packages/documentlm_core/src/documentlm_core/services/` logs with `logger.exception()` — no silent `except: pass` blocks
-- [ ] T061 [P] Run `uv run ruff check . && uv run ruff format .` across all packages; fix any violations
-- [ ] T062 [P] Run `uv run mypy packages/ apps/` in strict mode; resolve all errors (no `Any`, no bare `dict`)
+- [X] T058 [P] Seed `apps/api/src/api/static/style.css` by copying `/Users/will/projects/document-projects/documentLM/static/style.css` verbatim, then add learning-tracker-specific classes on top: `.syllabus-tree`, `.syllabus-item`, `.status-badge` (unresearched/in-progress/mastered colours), `.blocked-overlay`, `.margin-comment` sidebar, `.chapter-content`; also copy `base.html` from `documentLM/src/writer/templates/base.html` and adapt brand name + nav for learning-tracker
+- [X] T059 Add structured JSON logging middleware to `apps/api/src/api/main.py`: log every request (method, path, status, duration) and catch-all exception handler that logs tracebacks before returning 500
+- [X] T060 [P] Verify every exception boundary in `packages/documentlm_core/src/documentlm_core/services/` logs with `logger.exception()` — no silent `except: pass` blocks
+- [X] T061 [P] Run `uv run ruff check . && uv run ruff format .` across all packages; fix any violations
+- [X] T062 [P] Run `uv run mypy packages/ apps/` in strict mode; resolve all errors (no `Any`, no bare `dict`)
 - [ ] T063 Run full quickstart.md validation: `docker compose up -d`, `alembic upgrade head`, full `pytest` suite, then manual smoke test per quickstart.md steps
 
 ---
