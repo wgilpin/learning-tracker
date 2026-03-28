@@ -141,20 +141,51 @@ async def post_comment(
     return templates.TemplateResponse(request, "chapters/_margin_comment.html", {"comment": comment})
 
 
+@router.get("/comments/{comment_id}", response_class=HTMLResponse)
+async def get_comment(
+    request: Request,
+    comment_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    from documentlm_core.db.models import MarginComment
+    from sqlalchemy import select
+
+    result = await session.execute(select(MarginComment).where(MarginComment.id == comment_id))
+    comment = result.scalar_one_or_none()
+    if comment is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    return templates.TemplateResponse(request, "chapters/_margin_comment.html", {"comment": comment})
+
+
 @router.patch("/comments/{comment_id}/resolve", response_class=HTMLResponse)
 async def resolve_comment(
     request: Request,
     comment_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    from documentlm_core.services.margin_comment import resolve_comment as _resolve
+    from documentlm_core.db.models import SyllabusItem
+    from documentlm_core.services.chapter import get_chapter
+    from documentlm_core.services.margin_comment import resolve_and_apply
+    from sqlalchemy import select
 
     try:
-        comment = await _resolve(session, comment_id)
+        chapter_id = await resolve_and_apply(session, comment_id)
+        await session.commit()
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    return templates.TemplateResponse(request, "chapters/_margin_comment.html", {"comment": comment})
+    chapter = await get_chapter(session, chapter_id)
+    item = (await session.execute(
+        select(SyllabusItem).where(SyllabusItem.id == chapter.syllabus_item_id)
+    )).scalar_one()
+
+    response = templates.TemplateResponse(
+        request, "chapters/_inline.html", {"chapter": chapter, "item": item}
+    )
+    response.headers["HX-Retarget"] = "#reading-panel"
+    response.headers["HX-Reswap"] = "innerHTML"
+    return response
 
 
 async def _draft_chapter_bg(

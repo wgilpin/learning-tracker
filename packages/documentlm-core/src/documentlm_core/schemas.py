@@ -117,6 +117,7 @@ class ChapterRead(BaseModel):
     syllabus_item_id: UUID
     content: str
     sources: list[SourceRead]
+    margin_comments: list["MarginCommentRead"] = []
     created_at: datetime
     updated_at: datetime
 

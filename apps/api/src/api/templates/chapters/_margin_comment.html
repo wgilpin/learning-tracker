@@ -9,17 +9,19 @@
     <p>{{ comment.response }}</p>
   </div>
   {% else %}
-  <div class="margin-comment-pending">
+  <div class="margin-comment-pending"
+       hx-get="/comments/{{ comment.id }}"
+       hx-trigger="every 3s"
+       hx-target="closest .margin-comment"
+       hx-swap="outerHTML">
     <span class="spinner"></span> Generating response…
   </div>
   {% endif %}
 
   {% if comment.status == 'OPEN' %}
   <button class="btn btn-sm btn-resolve"
-          hx-patch="/comments/{{ comment.id }}/resolve"
-          hx-target="closest .margin-comment"
-          hx-swap="outerHTML">
-    Resolve
+          hx-patch="/comments/{{ comment.id }}/resolve">
+    Make permanent &amp; resolve
   </button>
   {% else %}
   <span class="resolved-badge">Resolved</span>

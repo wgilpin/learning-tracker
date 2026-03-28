@@ -27,4 +27,176 @@
     </section>
   </div>
 </div>
+
+<!-- Floating AI button shown on text selection -->
+<button id="ai-selection-btn" aria-label="Open AI assistant">
+  <span class="material-symbols-outlined">auto_awesome</span>
+  AI
+</button>
+
+<!-- AI Assistant modal -->
+<dialog id="command-modal">
+  <div class="ai-modal-header">
+    <div class="ai-modal-header-brand">
+      <span class="material-symbols-outlined ai-modal-icon">auto_awesome</span>
+      <span class="ai-modal-label">AI Assistant</span>
+    </div>
+    <button type="button" class="ai-modal-close"
+            onclick="document.getElementById('command-modal').close()"
+            aria-label="Close">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+
+  <form id="modal-comment-form" hx-swap="beforeend">
+    <input type="hidden" name="paragraph_anchor" id="modal-anchor">
+
+    <div class="ai-modal-input-section">
+      <textarea name="content" id="modal-body-input" class="modal-body-input"
+                rows="3" placeholder="Ask a question or request elaboration…" required></textarea>
+      <button type="submit" class="ai-modal-send" aria-label="Send">
+        <span class="material-symbols-outlined">send</span>
+      </button>
+    </div>
+
+    <div class="ai-modal-quick-actions">
+      <button type="button" class="ai-quick-action" onclick="submitQuick('Explain this in simpler terms')">
+        <span class="material-symbols-outlined">school</span>
+        <div>
+          <div class="ai-quick-action-title">Explain simpler</div>
+          <div class="ai-quick-action-sub">Use plain language</div>
+        </div>
+      </button>
+      <button type="button" class="ai-quick-action" onclick="submitQuick('Give me a worked example of this')">
+        <span class="material-symbols-outlined">calculate</span>
+        <div>
+          <div class="ai-quick-action-title">Worked example</div>
+          <div class="ai-quick-action-sub">Show me how it works</div>
+        </div>
+      </button>
+      <button type="button" class="ai-quick-action" onclick="submitQuick('Elaborate on this in more depth')">
+        <span class="material-symbols-outlined">expand</span>
+        <div>
+          <div class="ai-quick-action-title">Elaborate</div>
+          <div class="ai-quick-action-sub">Go deeper on this</div>
+        </div>
+      </button>
+      <button type="button" class="ai-quick-action" onclick="submitQuick('Why is this important to understand?')">
+        <span class="material-symbols-outlined">lightbulb</span>
+        <div>
+          <div class="ai-quick-action-title">Why it matters</div>
+          <div class="ai-quick-action-sub">Explain the significance</div>
+        </div>
+      </button>
+    </div>
+
+    <div class="ai-modal-context-preview">
+      <div class="ai-modal-context-header">
+        <span class="material-symbols-outlined">history_edu</span>
+        <span>Selected Text</span>
+      </div>
+      <p class="ai-modal-context-text" id="modal-sel-preview-text"></p>
+    </div>
+
+    <div class="ai-modal-footer">
+      <button type="button" class="ai-modal-cancel"
+              onclick="document.getElementById('command-modal').close()">Cancel</button>
+      <button type="submit" id="modal-submit-btn" class="ai-modal-apply">Add comment</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  var readingPanel = document.getElementById('reading-panel');
+  var modal = document.getElementById('command-modal');
+  var form = document.getElementById('modal-comment-form');
+  var anchorInput = document.getElementById('modal-anchor');
+  var previewText = document.getElementById('modal-sel-preview-text');
+  var bodyInput = document.getElementById('modal-body-input');
+  var aiBtn = document.getElementById('ai-selection-btn');
+  var currentAnchor = null;
+  var currentChapterId = null;
+
+  function hideBtn() {
+    aiBtn.style.display = 'none';
+    currentAnchor = null;
+    currentChapterId = null;
+  }
+
+  document.addEventListener('mouseup', function (e) {
+    if (modal.contains(e.target) || aiBtn.contains(e.target)) return;
+
+    var sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.toString().trim() === '') {
+      hideBtn();
+      return;
+    }
+
+    if (!readingPanel.contains(sel.anchorNode)) {
+      hideBtn();
+      return;
+    }
+
+    var node = sel.anchorNode;
+    var para = null;
+    while (node && node !== readingPanel) {
+      if (node.nodeType === 1 && node.classList && node.classList.contains('chapter-paragraph')) {
+        para = node;
+        break;
+      }
+      node = node.parentNode;
+    }
+    if (!para) { hideBtn(); return; }
+
+    var chapterEl = para.closest('[data-chapter-id]');
+    if (!chapterEl) { hideBtn(); return; }
+
+    currentAnchor = para.id;
+    currentChapterId = chapterEl.dataset.chapterId;
+
+    var rect = para.getBoundingClientRect();
+    aiBtn.style.display = 'flex';
+    aiBtn.style.top = rect.top + 'px';
+  });
+
+  aiBtn.addEventListener('click', function () {
+    var sel = window.getSelection();
+    var selectedText = sel ? sel.toString().trim() : '';
+
+    anchorInput.value = currentAnchor;
+    previewText.textContent = selectedText
+      ? '\u201c' + selectedText.slice(0, 120) + (selectedText.length > 120 ? '\u2026' : '') + '\u201d'
+      : '';
+
+    form.setAttribute('hx-post', '/chapters/' + currentChapterId + '/comments');
+    form.setAttribute('hx-target', '#comments-' + currentAnchor);
+    htmx.process(form);
+
+    bodyInput.value = '';
+    hideBtn();
+    modal.showModal();
+    bodyInput.focus();
+  });
+
+  modal.addEventListener('close', hideBtn);
+
+  form.addEventListener('htmx:beforeRequest', function () {
+    document.getElementById('modal-submit-btn').classList.add('modal-submit-btn--loading');
+  });
+
+  form.addEventListener('htmx:afterRequest', function (e) {
+    document.getElementById('modal-submit-btn').classList.remove('modal-submit-btn--loading');
+    if (e.detail.successful) {
+      modal.close();
+      form.reset();
+    }
+  });
+
+  window.submitQuick = function (prompt) {
+    bodyInput.value = prompt;
+    form.requestSubmit();
+  };
+})();
+</script>
 {% endblock %}

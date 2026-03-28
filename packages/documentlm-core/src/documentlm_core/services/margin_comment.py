@@ -66,6 +66,49 @@ async def resolve_comment(
     return _to_read(comment)
 
 
+async def resolve_and_apply(
+    session: AsyncSession,
+    comment_id: uuid.UUID,
+) -> uuid.UUID:
+    """Resolve a comment and splice its response into the chapter after the anchored paragraph.
+
+    Returns the chapter_id so the caller can re-render the chapter.
+    """
+    from datetime import UTC, datetime
+
+    comment = await _get_or_raise(session, comment_id)
+    if not comment.response:
+        raise ValueError(f"Comment {comment_id} has no response to apply")
+
+    # Extract paragraph index (1-based) from anchor like "para-<uuid>-N"
+    para_index = int(comment.paragraph_anchor.rsplit("-", 1)[1])
+
+    chapter_result = await session.execute(
+        select(AtomicChapter).where(AtomicChapter.id == comment.chapter_id)
+    )
+    chapter = chapter_result.scalar_one_or_none()
+    if chapter is None:
+        raise ValueError(f"AtomicChapter {comment.chapter_id} not found")
+
+    paragraphs = chapter.content.split("\n\n")
+    # Insert after the 1-based paragraph index (clamp to end if out of range)
+    insert_at = min(para_index, len(paragraphs))
+    paragraphs.insert(insert_at, comment.response)
+    chapter.content = "\n\n".join(paragraphs)
+    chapter.updated_at = datetime.now(UTC)
+
+    comment.status = CommentStatus.RESOLVED.value
+    comment.resolved_at = datetime.now(UTC)
+    await session.flush()
+    logger.info(
+        "Applied and resolved comment_id=%s into chapter_id=%s after paragraph %d",
+        comment_id,
+        chapter.id,
+        para_index,
+    )
+    return chapter.id
+
+
 async def _get_or_raise(session: AsyncSession, comment_id: uuid.UUID) -> MarginComment:
     result = await session.execute(select(MarginComment).where(MarginComment.id == comment_id))
     comment = result.scalar_one_or_none()

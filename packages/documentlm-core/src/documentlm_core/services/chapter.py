@@ -89,7 +89,8 @@ async def get_context_summaries(
 
 
 async def _read_chapter(session: AsyncSession, chapter: AtomicChapter) -> ChapterRead:
-    from documentlm_core.db.models import Source
+    from documentlm_core.db.models import MarginComment, Source
+    from documentlm_core.schemas import CommentStatus, MarginCommentRead
 
     # Load sources via ChapterSource
     source_result = await session.execute(
@@ -112,11 +113,30 @@ async def _read_chapter(session: AsyncSession, chapter: AtomicChapter) -> Chapte
         for s in sources
     ]
 
+    comment_result = await session.execute(
+        select(MarginComment)
+        .where(MarginComment.chapter_id == chapter.id)
+        .order_by(MarginComment.created_at)
+    )
+    comment_reads = [
+        MarginCommentRead(
+            id=c.id,
+            chapter_id=c.chapter_id,
+            paragraph_anchor=c.paragraph_anchor,
+            content=c.content,
+            response=c.response,
+            status=CommentStatus(c.status),
+            created_at=c.created_at,
+        )
+        for c in comment_result.scalars().all()
+    ]
+
     return ChapterRead(
         id=chapter.id,
         syllabus_item_id=chapter.syllabus_item_id,
         content=chapter.content,
         sources=source_reads,
+        margin_comments=comment_reads,
         created_at=chapter.created_at,
         updated_at=chapter.updated_at,
     )
