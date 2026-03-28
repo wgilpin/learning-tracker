@@ -131,6 +131,7 @@ class ChapterRead(BaseModel):
 
 class MarginCommentCreate(BaseModel):
     paragraph_anchor: str
+    selected_text: str | None = None
     content: str
 
 

@@ -1787,6 +1787,12 @@ button.syllabus-child-btn:hover { background: #eff6ff; color: #1d4ed8; }
 .margin-comment-response { background: #eff6ff; padding: 0.5rem; border-radius: 4px; font-size: 0.875rem; margin-bottom: 0.5rem; }
 .margin-comment-pending { color: #9ca3af; font-size: 0.8rem; margin-bottom: 0.5rem; }
 .resolved-badge { font-size: 0.7rem; color: #9ca3af; }
+.margin-comment-failed { font-size: 0.8rem; color: #b91c1c; margin-bottom: 0.5rem; }
+.btn-danger { background: none; border: 1px solid #fca5a5; color: #b91c1c; border-radius: 4px; padding: 0.2rem 0.5rem; cursor: pointer; font-size: 0.75rem; }
+.btn-danger:hover { background: #fef2f2; }
+.margin-comment-actions { display: flex; gap: 0.5rem; align-items: center; }
+.btn-dismiss { background: none; border: 1px solid #e5e7eb; color: #6b7280; border-radius: 4px; padding: 0.2rem 0.5rem; cursor: pointer; font-size: 0.75rem; font-family: inherit; }
+.btn-dismiss:hover { background: #f3f4f6; color: #374151; }
 
 /* Source queue */
 .source-list { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }

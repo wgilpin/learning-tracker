@@ -48,8 +48,9 @@
     </button>
   </div>
 
-  <form id="modal-comment-form" hx-swap="beforeend">
+  <form id="modal-comment-form" hx-boost="false">
     <input type="hidden" name="paragraph_anchor" id="modal-anchor">
+    <input type="hidden" name="selected_text" id="modal-selected-text">
 
     <div class="ai-modal-input-section">
       <textarea name="content" id="modal-body-input" class="modal-body-input"
@@ -120,6 +121,9 @@
 
   function hideBtn() {
     aiBtn.style.display = 'none';
+  }
+
+  function clearSelection() {
     currentAnchor = null;
     currentChapterId = null;
   }
@@ -129,12 +133,12 @@
 
     var sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.toString().trim() === '') {
-      hideBtn();
+      hideBtn(); clearSelection();
       return;
     }
 
     if (!readingPanel.contains(sel.anchorNode)) {
-      hideBtn();
+      hideBtn(); clearSelection();
       return;
     }
 
@@ -147,10 +151,10 @@
       }
       node = node.parentNode;
     }
-    if (!para) { hideBtn(); return; }
+    if (!para) { hideBtn(); clearSelection(); return; }
 
     var chapterEl = para.closest('[data-chapter-id]');
-    if (!chapterEl) { hideBtn(); return; }
+    if (!chapterEl) { hideBtn(); clearSelection(); return; }
 
     currentAnchor = para.id;
     currentChapterId = chapterEl.dataset.chapterId;
@@ -165,33 +169,38 @@
     var selectedText = sel ? sel.toString().trim() : '';
 
     anchorInput.value = currentAnchor;
+    document.getElementById('modal-selected-text').value = selectedText;
     previewText.textContent = selectedText
       ? '\u201c' + selectedText.slice(0, 120) + (selectedText.length > 120 ? '\u2026' : '') + '\u201d'
       : '';
 
-    form.setAttribute('hx-post', '/chapters/' + currentChapterId + '/comments');
-    form.setAttribute('hx-target', '#comments-' + currentAnchor);
-    htmx.process(form);
-
     bodyInput.value = '';
-    hideBtn();
+    hideBtn();  // hide button but keep currentAnchor/currentChapterId alive
     modal.showModal();
     bodyInput.focus();
   });
 
-  modal.addEventListener('close', hideBtn);
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var submitBtn = document.getElementById('modal-submit-btn');
+    submitBtn.classList.add('modal-submit-btn--loading');
 
-  form.addEventListener('htmx:beforeRequest', function () {
-    document.getElementById('modal-submit-btn').classList.add('modal-submit-btn--loading');
-  });
-
-  form.addEventListener('htmx:afterRequest', function (e) {
-    document.getElementById('modal-submit-btn').classList.remove('modal-submit-btn--loading');
-    if (e.detail.successful) {
+    htmx.ajax('POST', '/chapters/' + currentChapterId + '/comments', {
+      target: '#comments-' + currentAnchor,
+      swap: 'beforeend',
+      values: {
+        paragraph_anchor: anchorInput.value,
+        selected_text: document.getElementById('modal-selected-text').value,
+        content: bodyInput.value,
+      },
+    }).then(function () {
+      submitBtn.classList.remove('modal-submit-btn--loading');
       modal.close();
       form.reset();
-    }
+    });
   });
+
+  modal.addEventListener('close', function () { hideBtn(); clearSelection(); });
 
   window.submitQuick = function (prompt) {
     bodyInput.value = prompt;

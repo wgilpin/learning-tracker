@@ -31,6 +31,7 @@ async def create_comment(
         id=uuid.uuid4(),
         chapter_id=chapter_id,
         paragraph_anchor=data.paragraph_anchor,
+        selected_text=data.selected_text,
         content=data.content,
         response=None,
         status=CommentStatus.OPEN.value,
@@ -91,9 +92,24 @@ async def resolve_and_apply(
         raise ValueError(f"AtomicChapter {comment.chapter_id} not found")
 
     paragraphs = chapter.content.split("\n\n")
-    # Insert after the 1-based paragraph index (clamp to end if out of range)
-    insert_at = min(para_index, len(paragraphs))
-    paragraphs.insert(insert_at, comment.response)
+    para_block = paragraphs[para_index - 1] if para_index <= len(paragraphs) else ""
+
+    if comment.selected_text and comment.selected_text.strip() in para_block:
+        # Find the line within the block that contains the selected text and insert after it
+        lines = para_block.split("\n")
+        insert_line = len(lines)  # default: after block
+        for i, line in enumerate(lines):
+            if comment.selected_text.strip() in line:
+                insert_line = i + 1
+                break
+        lines.insert(insert_line, "")
+        lines.insert(insert_line + 1, comment.response)
+        paragraphs[para_index - 1] = "\n".join(lines)
+    else:
+        # Fall back: insert as a new paragraph after the block
+        insert_at = min(para_index, len(paragraphs))
+        paragraphs.insert(insert_at, comment.response)
+
     chapter.content = "\n\n".join(paragraphs)
     chapter.updated_at = datetime.now(UTC)
 

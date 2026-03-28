@@ -61,12 +61,6 @@ async def get_topic_detail(
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
 
-    if request.headers.get("HX-Request"):
-        items = await list_syllabus_items(session, topic_id)
-        return templates.TemplateResponse(
-            request, "topics/_syllabus_panel.html", {"topic": topic, "items": items}
-        )
-
     return templates.TemplateResponse(request, "topics/detail.html", {"topic": topic})
 
 

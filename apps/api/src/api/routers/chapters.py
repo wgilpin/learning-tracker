@@ -120,6 +120,7 @@ async def post_comment(
     request: Request,
     chapter_id: uuid.UUID,
     paragraph_anchor: str = Form(...),
+    selected_text: str | None = Form(None),
     content: str = Form(...),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
@@ -132,10 +133,17 @@ async def post_comment(
         comment = await create_comment(
             session,
             chapter_id,
-            MarginCommentCreate(paragraph_anchor=paragraph_anchor, content=content),
+            MarginCommentCreate(
+                paragraph_anchor=paragraph_anchor,
+                selected_text=selected_text,
+                content=content,
+            ),
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    # Commit before launching background task so the new session can see the row
+    await session.commit()
     asyncio.create_task(_respond_to_comment_bg(comment.id, chapter_id))
 
     return templates.TemplateResponse(request, "chapters/_margin_comment.html", {"comment": comment})
@@ -147,6 +155,8 @@ async def get_comment(
     comment_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
 ) -> Response:
+    from datetime import UTC, datetime, timedelta
+
     from documentlm_core.db.models import MarginComment
     from sqlalchemy import select
 
@@ -155,7 +165,29 @@ async def get_comment(
     if comment is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
-    return templates.TemplateResponse(request, "chapters/_margin_comment.html", {"comment": comment})
+    timed_out = (
+        comment.response is None
+        and datetime.now(UTC) - comment.created_at > timedelta(minutes=5)
+    )
+    return templates.TemplateResponse(
+        request, "chapters/_margin_comment.html", {"comment": comment, "timed_out": timed_out}
+    )
+
+
+@router.delete("/comments/{comment_id}", response_class=HTMLResponse)
+async def delete_comment(
+    comment_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    from documentlm_core.db.models import MarginComment
+    from sqlalchemy import select
+
+    result = await session.execute(select(MarginComment).where(MarginComment.id == comment_id))
+    comment = result.scalar_one_or_none()
+    if comment is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    await session.delete(comment)
+    return HTMLResponse("")
 
 
 @router.patch("/comments/{comment_id}/resolve", response_class=HTMLResponse)
@@ -169,11 +201,24 @@ async def resolve_comment(
     from documentlm_core.services.margin_comment import resolve_and_apply
     from sqlalchemy import select
 
+    from documentlm_core.db.models import MarginComment as _MC
+    from sqlalchemy import select as _sel
+
+    comment_row = (await session.execute(_sel(_MC).where(_MC.id == comment_id))).scalar_one_or_none()
+    if comment_row is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    if not comment_row.response:
+        # No response to apply — just delete the comment and return empty
+        await session.delete(comment_row)
+        await session.commit()
+        return HTMLResponse("")
+
     try:
         chapter_id = await resolve_and_apply(session, comment_id)
         await session.commit()
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     chapter = await get_chapter(session, chapter_id)
     item = (await session.execute(

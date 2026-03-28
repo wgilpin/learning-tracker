@@ -8,6 +8,10 @@
   <div class="margin-comment-response">
     <p>{{ comment.response }}</p>
   </div>
+  {% elif timed_out %}
+  <div class="margin-comment-failed">
+    Response generation failed. Delete this comment and try again.
+  </div>
   {% else %}
   <div class="margin-comment-pending"
        hx-get="/comments/{{ comment.id }}"
@@ -18,11 +22,29 @@
   </div>
   {% endif %}
 
-  {% if comment.status == 'OPEN' %}
-  <button class="btn btn-sm btn-resolve"
-          hx-patch="/comments/{{ comment.id }}/resolve">
-    Make permanent &amp; resolve
+  {% if timed_out %}
+  <button class="btn btn-sm btn-danger"
+          hx-delete="/comments/{{ comment.id }}"
+          hx-target="closest .margin-comment"
+          hx-swap="outerHTML"
+          hx-confirm="Delete this comment?">
+    Delete
   </button>
+  {% elif comment.status == 'OPEN' %}
+  <div class="margin-comment-actions">
+    <button class="btn btn-sm btn-resolve"
+            hx-patch="/comments/{{ comment.id }}/resolve"
+            hx-target="closest .margin-comment"
+            hx-swap="outerHTML">
+      Make permanent &amp; resolve
+    </button>
+    <button class="btn btn-sm btn-dismiss"
+            hx-delete="/comments/{{ comment.id }}"
+            hx-target="closest .margin-comment"
+            hx-swap="outerHTML">
+      Dismiss
+    </button>
+  </div>
   {% else %}
   <span class="resolved-badge">Resolved</span>
   {% endif %}

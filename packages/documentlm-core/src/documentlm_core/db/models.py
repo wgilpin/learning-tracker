@@ -205,6 +205,7 @@ class MarginComment(Base):
         nullable=False,
     )
     paragraph_anchor: Mapped[str] = mapped_column(String(500), nullable=False)
+    selected_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     response: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="OPEN")
