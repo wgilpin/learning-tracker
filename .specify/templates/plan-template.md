@@ -31,7 +31,15 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+| Principle | Gate Question | Status |
+|-----------|---------------|--------|
+| I. Test-First | Are tests scoped to local infra only (no live LLM/remote API calls)? | ☐ |
+| II. Strong Typing | Do all new functions have fully annotated signatures? No `Any`, no bare `dict`? | ☐ |
+| III. Simplicity | Is this the simplest implementation satisfying the spec? No unapproved scope? | ☐ |
+| IV. Functional Style | Is side-effectful code pushed to the edges? No inheritance for reuse? | ☐ |
+| V. Logging | Does every exception boundary log with traceback? No silent failures? | ☐ |
+| Tech Stack | Python/uv, FastAPI, HTMX, PostgreSQL+Docker, no raw JS framework? | ☐ |
+| Quality Gates | ruff + mypy + pytest all pass? No `Any`, no bare `dict` signatures? | ☐ |
 
 ## Project Structure
 
