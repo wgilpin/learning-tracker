@@ -11,10 +11,12 @@ dependencies = [
     "markdown-it-py>=3.0",
     "mdit-py-plugins>=0.4",
     "documentlm-core",
+    "nlp-utils",
 ]
 
 [tool.uv.sources]
 documentlm-core = { workspace = true }
+nlp-utils = { path = "../../../../nlp_utils" }
 
 [project.optional-dependencies]
 dev = [

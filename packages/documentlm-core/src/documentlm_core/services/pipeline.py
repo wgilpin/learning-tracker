@@ -108,14 +108,13 @@ def _no_text_reason(source: Source) -> str:
 async def _fetch_url(url: str | None) -> str | None:
     if not url:
         return None
-    try:
-        from nlp_utils.fetcher import fetch_url_text  # type: ignore[attr-defined]
+    from nlp_utils.fetcher import fetch_arxiv_text, fetch_pdf_text, fetch_url_text
 
-        return await fetch_url_text(url)
-    except (ImportError, AttributeError) as exc:
-        raise ValueError(
-            "fetch_url_text not available — requires Feature 002 nlp_utils extensions"
-        ) from exc
+    if "arxiv.org" in url:
+        return await fetch_arxiv_text(url)
+    if url.endswith(".pdf"):
+        return await fetch_pdf_text(url)
+    return await fetch_url_text(url)
 
 
 async def _fetch_youtube(url: str | None) -> str | None:

@@ -165,6 +165,7 @@ dependencies = [
     { name = "jinja2" },
     { name = "markdown-it-py" },
     { name = "mdit-py-plugins" },
+    { name = "nlp-utils" },
     { name = "python-multipart" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -184,6 +185,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1" },
     { name = "markdown-it-py", specifier = ">=3.0" },
     { name = "mdit-py-plugins", specifier = ">=0.4" },
+    { name = "nlp-utils", directory = "../../nlp_utils" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
     { name = "python-multipart", specifier = ">=0.0.12" },
@@ -2234,7 +2236,7 @@ wheels = [
 
 [[package]]
 name = "nlp-utils"
-version = "0.1.0"
+version = "0.1.1"
 source = { directory = "../../nlp_utils" }
 dependencies = [
     { name = "beautifulsoup4" },

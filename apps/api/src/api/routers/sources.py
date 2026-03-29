@@ -133,12 +133,16 @@ async def _extract(
     if stype == SourceType.URL_SCRAPE:
         if not url:
             raise ValueError("A URL is required for URL scraping")
-        from nlp_utils import fetch_url_text
-
-        content = await fetch_url_text(url)
-        # Use the URL hostname as a fallback title
         from urllib.parse import urlparse
 
+        from nlp_utils import fetch_arxiv_text, fetch_pdf_text, fetch_url_text
+
+        if "arxiv.org" in url:
+            content = await fetch_arxiv_text(url)
+        elif url.endswith(".pdf"):
+            content = await fetch_pdf_text(url)
+        else:
+            content = await fetch_url_text(url)
         host = urlparse(url).netloc or url
         return host, content, url
 
