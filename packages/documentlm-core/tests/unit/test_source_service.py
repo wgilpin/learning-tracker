@@ -6,7 +6,7 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from documentlm_core.schemas import SourceCreate, SourceRead, SourceStatus
+from documentlm_core.schemas import IndexStatus, SourceCreate, SourceRead, SourceStatus, SourceType
 
 
 def _make_source_read(
@@ -20,12 +20,17 @@ def _make_source_read(
     return SourceRead(
         id=source_id or uuid.uuid4(),
         topic_id=topic_id or uuid.uuid4(),
+        source_type=SourceType.SEARCH,
+        is_primary=False,
+        index_status=IndexStatus.PENDING,
+        index_error=None,
         url=url,
         doi=doi,
         title="Test Paper",
         authors=["Author A"],
         publication_date=None,
         verification_status=verification_status,
+        content=None,
     )
 
 
@@ -43,12 +48,16 @@ async def test_create_source_deduplicates_by_doi() -> None:
     mock_result.scalar_one_or_none.return_value = MagicMock(
         id=existing.id,
         topic_id=topic_id,
+        source_type="SEARCH",
+        index_status="PENDING",
+        index_error=None,
         url=None,
         doi="10.1234/dup",
         title="Test Paper",
         authors=["Author A"],
         publication_date=None,
         verification_status="QUEUED",
+        content=None,
     )
     mock_session.execute = AsyncMock(return_value=mock_result)
 
@@ -79,12 +88,16 @@ async def test_create_source_deduplicates_by_url() -> None:
     url_result.scalar_one_or_none.return_value = MagicMock(
         id=existing_id,
         topic_id=topic_id,
+        source_type="SEARCH",
+        index_status="PENDING",
+        index_error=None,
         url="https://example.com/paper",
         doi=None,
         title="Test Paper",
         authors=["Author B"],
         publication_date=None,
         verification_status="QUEUED",
+        content=None,
     )
     mock_session.execute = AsyncMock(return_value=url_result)
 
@@ -125,12 +138,16 @@ async def test_verify_source_sets_verified_status() -> None:
     mock_orm = MagicMock()
     mock_orm.id = source_id
     mock_orm.topic_id = uuid.uuid4()
+    mock_orm.source_type = "SEARCH"
+    mock_orm.index_status = "PENDING"
+    mock_orm.index_error = None
     mock_orm.url = None
     mock_orm.doi = "10.1234/x"
     mock_orm.title = "Paper"
     mock_orm.authors = []
     mock_orm.publication_date = None
     mock_orm.verification_status = "QUEUED"
+    mock_orm.content = None
 
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = mock_orm
@@ -152,12 +169,16 @@ async def test_reject_source_sets_rejected_status() -> None:
     mock_orm = MagicMock()
     mock_orm.id = source_id
     mock_orm.topic_id = uuid.uuid4()
+    mock_orm.source_type = "SEARCH"
+    mock_orm.index_status = "PENDING"
+    mock_orm.index_error = None
     mock_orm.url = None
     mock_orm.doi = "10.1234/x"
     mock_orm.title = "Paper"
     mock_orm.authors = []
     mock_orm.publication_date = None
     mock_orm.verification_status = "QUEUED"
+    mock_orm.content = None
 
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = mock_orm

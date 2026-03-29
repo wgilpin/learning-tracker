@@ -10,8 +10,11 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://tracker:tracker@localhost:5432/tracker"
-    google_api_key: str = Field(default="", alias="GOOGLE_API_KEY", validation_alias="GOOGLE_API_KEY")
+    google_api_key: str = Field(
+        default="", alias="GOOGLE_API_KEY", validation_alias="GOOGLE_API_KEY"
+    )
     gemini_model: str = "gemini-3-flash-preview"
+    chroma_path: str = Field(default="./chroma_data", alias="CHROMA_PATH")
 
     model_config = {
         "env_file": ".env",

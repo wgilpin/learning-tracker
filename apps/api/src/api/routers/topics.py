@@ -5,15 +5,17 @@ from __future__ import annotations
 import logging
 import uuid
 
-from api.templates_config import templates
 from documentlm_core.db.session import get_session
 from documentlm_core.schemas import TopicCreate
+from documentlm_core.services.source import list_sources
 from documentlm_core.services.syllabus import list_syllabus_items
 from documentlm_core.services.topic import create_topic, get_topic, list_topics
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
+
+from api.templates_config import templates
 
 logger = logging.getLogger(__name__)
 
@@ -39,11 +41,8 @@ async def post_topic(
     topic = await create_topic(session, TopicCreate(title=title.strip(), description=description))
     await session.commit()
 
-    # Queue background task for Syllabus Architect (must run after commit so FK exists)
-    background_tasks.add_task(_run_syllabus_architect, topic.id, topic.title)
-
-    logger.info("Queued syllabus generation for topic_id=%s", topic.id)
-    return RedirectResponse(url=f"/topics/{topic.id}", status_code=303)
+    logger.info("Created topic topic_id=%s — redirecting to source intake", topic.id)
+    return RedirectResponse(url=f"/topics/{topic.id}/sources", status_code=303)
 
 
 @router.get("/topics/_new_form", response_class=HTMLResponse)
@@ -77,7 +76,34 @@ async def topic_status(
     return JSONResponse({"status": status, "item_count": len(items)})
 
 
-async def _run_syllabus_architect(topic_id: uuid.UUID, topic_title: str) -> None:
+@router.post("/topics/{topic_id}/generate")
+async def post_generate(
+    background_tasks: BackgroundTasks,
+    topic_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Kick off syllabus generation using primary sources as context."""
+    topic = await get_topic(session, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    primary_sources = await list_sources(session, topic_id, primary_only=True)
+    primary_texts = [s.content for s in primary_sources if s.content]
+
+    background_tasks.add_task(_run_syllabus_architect, topic_id, topic.title, primary_texts)
+    background_tasks.add_task(_run_academic_scout, topic_id, topic.title)
+
+    logger.info(
+        "Queued generation for topic_id=%s primary_sources=%d", topic_id, len(primary_sources)
+    )
+    return RedirectResponse(url=f"/topics/{topic_id}", status_code=303)
+
+
+async def _run_syllabus_architect(
+    topic_id: uuid.UUID,
+    topic_title: str,
+    primary_source_texts: list[str] | None = None,
+) -> None:
     """Background task: run Syllabus Architect and persist items."""
     from documentlm_core.agents.syllabus_architect import run_syllabus_architect
     from documentlm_core.db.session import AsyncSessionFactory
@@ -112,9 +138,23 @@ async def _run_syllabus_architect(topic_id: uuid.UUID, topic_title: str) -> None
     async with AsyncSessionFactory() as session:
         tools = _DBTools(session)
         try:
-            await run_syllabus_architect(topic_id, topic_title, tools)
+            await run_syllabus_architect(topic_id, topic_title, tools, primary_source_texts)
             await session.commit()
             logger.info("Syllabus generation complete for topic_id=%s", topic_id)
         except Exception:
             logger.exception("Syllabus generation failed for topic_id=%s", topic_id)
+            await session.rollback()
+
+
+async def _run_academic_scout(topic_id: uuid.UUID, topic_title: str) -> None:
+    """Background task: run Academic Scout to discover supplemental sources."""
+    from documentlm_core.agents.academic_scout import run_academic_scout
+    from documentlm_core.db.session import AsyncSessionFactory
+
+    async with AsyncSessionFactory() as session:
+        try:
+            await run_academic_scout(topic_id, topic_title, session)
+            await session.commit()
+        except Exception:
+            logger.exception("Academic Scout failed for topic_id=%s", topic_id)
             await session.rollback()

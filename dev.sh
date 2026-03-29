@@ -17,4 +17,4 @@ set +a
 
 # Run migrations then start the app
 uv run alembic upgrade head
-uv run uvicorn api.main:create_app --factory --reload --app-dir apps/api/src
+uv run --project apps/api uvicorn api.main:create_app --factory --reload --app-dir apps/api/src

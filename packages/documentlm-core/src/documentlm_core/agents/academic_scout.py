@@ -10,7 +10,8 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from documentlm_core.schemas import SourceCreate
-from documentlm_core.services.source import create_source
+from documentlm_core.services.pipeline import extract_and_index_source
+from documentlm_core.services.source import create_source, list_sources
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,14 @@ async def run_academic_scout(
     """
     logger.info("Academic Scout starting for topic_id=%s title=%r", topic_id, topic_title)
 
+    # Load primary sources first and log them before any external search
+    primary_sources = await list_sources(session, topic_id, primary_only=True)
+    if primary_sources:
+        logger.info(
+            "Academic Scout: %d primary source(s) present — processing before search",
+            len(primary_sources),
+        )
+
     arxiv_results = await search_arxiv(topic_title)
     youtube_results = await search_youtube(topic_title)
 
@@ -147,6 +156,8 @@ async def run_academic_scout(
                 ),
             )
             created_ids.append(source.id)
+            await extract_and_index_source(source.id, session)
+            await session.commit()
         except Exception:
             logger.exception("Failed to persist source title=%r", title)
 

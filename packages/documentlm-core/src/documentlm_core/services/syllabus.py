@@ -43,7 +43,9 @@ async def list_syllabus_items(session: AsyncSession, topic_id: uuid.UUID) -> lis
     return [_item_to_read(item) for item in result.scalars().all()]
 
 
-async def list_top_level_items(session: AsyncSession, topic_id: uuid.UUID) -> list[SyllabusItemRead]:
+async def list_top_level_items(
+    session: AsyncSession, topic_id: uuid.UUID
+) -> list[SyllabusItemRead]:
     result = await session.execute(
         select(SyllabusItem)
         .where(SyllabusItem.topic_id == topic_id, SyllabusItem.parent_id.is_(None))

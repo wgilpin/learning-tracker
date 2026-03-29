@@ -1,4 +1,4 @@
-"""Initial schema: all tables + pgvector extension
+"""Initial schema: all tables
 
 Revision ID: 0001
 Revises:
@@ -21,9 +21,6 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # Enable pgvector extension
-    op.execute("CREATE EXTENSION IF NOT EXISTS vector")
-
     op.create_table(
         "topics",
         sa.Column("id", sa.UUID(as_uuid=True), primary_key=True),
@@ -172,4 +169,4 @@ def downgrade() -> None:
     op.drop_table("sources")
     op.drop_table("syllabus_items")
     op.drop_table("topics")
-    op.execute("DROP EXTENSION IF EXISTS vector")
+    pass

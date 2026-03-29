@@ -23,6 +23,20 @@ class SourceStatus(StrEnum):
     REJECTED = "REJECTED"
 
 
+class SourceType(StrEnum):
+    PDF_UPLOAD = "PDF_UPLOAD"
+    URL_SCRAPE = "URL_SCRAPE"
+    YOUTUBE_TRANSCRIPT = "YOUTUBE_TRANSCRIPT"
+    RAW_TEXT = "RAW_TEXT"
+    SEARCH = "SEARCH"
+
+
+class IndexStatus(StrEnum):
+    PENDING = "PENDING"
+    INDEXED = "INDEXED"
+    FAILED = "FAILED"
+
+
 class CommentStatus(StrEnum):
     OPEN = "OPEN"
     RESOLVED = "RESOLVED"
@@ -94,15 +108,30 @@ class SourceCreate(BaseModel):
         return self
 
 
+class PrimarySourceCreate(BaseModel):
+    topic_id: UUID
+    source_type: SourceType
+    title: str
+    content: str
+    url: str | None = None
+    content_hash: str
+    authors: list[str] = []
+
+
 class SourceRead(BaseModel):
     id: UUID
     topic_id: UUID
+    source_type: SourceType
+    is_primary: bool
+    index_status: IndexStatus
+    index_error: str | None
     url: str | None
     doi: str | None
     title: str
     authors: list[str]
     publication_date: date | None
     verification_status: SourceStatus
+    content: str | None
 
     model_config = {"from_attributes": True}
 
@@ -117,7 +146,7 @@ class ChapterRead(BaseModel):
     syllabus_item_id: UUID
     content: str
     sources: list[SourceRead]
-    margin_comments: list["MarginCommentRead"] = []
+    margin_comments: list[MarginCommentRead] = []
     created_at: datetime
     updated_at: datetime
 

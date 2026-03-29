@@ -40,7 +40,7 @@ async def get_or_trigger_chapter(
         return templates.TemplateResponse(request, "chapters/_inline.html", {"chapter": chapter, "item": item})
 
     import asyncio
-    asyncio.create_task(_draft_chapter_bg(item_id, item.topic_id, item.title))
+    asyncio.create_task(_draft_chapter_bg(item_id, item.topic_id, item.title, item.description))
     return templates.TemplateResponse(request, "chapters/_generating.html", {"item_id": item_id})
 
 
@@ -77,7 +77,7 @@ async def post_chapter_draft(
     if chapter is None:
         import asyncio
 
-        asyncio.create_task(_draft_chapter_bg(item_id, item.topic_id, item.title))
+        asyncio.create_task(_draft_chapter_bg(item_id, item.topic_id, item.title, item.description))
 
     return templates.TemplateResponse(
         request, "chapters/_status_card.html", {"item_id": item_id, "chapter": chapter}
@@ -237,6 +237,7 @@ async def _draft_chapter_bg(
     item_id: uuid.UUID,
     topic_id: uuid.UUID,
     item_title: str,
+    item_description: str | None = None,
 ) -> None:
     from documentlm_core.agents.chapter_scribe import run_chapter_scribe
     from documentlm_core.db.session import AsyncSessionFactory
@@ -244,7 +245,9 @@ async def _draft_chapter_bg(
 
     async with AsyncSessionFactory() as session:
         try:
-            content = await run_chapter_scribe(item_id, item_title, topic_id, session)
+            content = await run_chapter_scribe(
+                item_id, item_title, topic_id, session, item_description=item_description
+            )
             await create_chapter(session, item_id, topic_id, content, [])
             await session.commit()
             logger.info("Chapter drafted for item_id=%s", item_id)

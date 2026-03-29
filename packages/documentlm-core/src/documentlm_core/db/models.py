@@ -114,12 +114,18 @@ class Source(Base):
     topic_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True), ForeignKey("topics.id", ondelete="CASCADE"), nullable=False
     )
+    source_type: Mapped[str] = mapped_column(String(20), nullable=False, default="SEARCH")
+    index_status: Mapped[str] = mapped_column(String(10), nullable=False, default="PENDING")
+    index_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     url: Mapped[str | None] = mapped_column(Text, nullable=True)
     doi: Mapped[str | None] = mapped_column(String(255), nullable=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     authors: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     publication_date: Mapped[datetime | None] = mapped_column(Date, nullable=True)
     verification_status: Mapped[str] = mapped_column(String(20), nullable=False, default="QUEUED")
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_primary: Mapped[bool] = mapped_column(nullable=False, default=False)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow
     )
@@ -127,6 +133,7 @@ class Source(Base):
     __table_args__ = (
         UniqueConstraint("topic_id", "doi", name="uq_source_topic_doi"),
         UniqueConstraint("topic_id", "url", name="uq_source_topic_url"),
+        UniqueConstraint("topic_id", "content_hash", name="uq_source_topic_content_hash"),
     )
 
     topic: Mapped[Topic] = relationship("Topic", back_populates="sources")

@@ -5,7 +5,12 @@
 {% else %}
 <li class="source-row source-{{ source.verification_status | lower }}" id="source-{{ source.id }}">
   <div class="source-info">
-    <span class="source-title">{{ source.title }}</span>
+    <span class="source-title">
+      {% if source.is_primary %}
+      <span class="source-primary-badge">Primary</span>
+      {% endif %}
+      {{ source.title }}
+    </span>
     {% if source.authors %}
     <span class="source-authors">{{ source.authors | join(', ') }}</span>
     {% endif %}
@@ -16,6 +21,8 @@
     {% endif %}
   </div>
   <div class="source-actions">
+    <span class="source-type-badge source-type-badge--{{ source.source_type | lower }}">{{ source.source_type | replace('_', ' ') | title }}</span>
+    <span class="status-badge status-index-{{ source.index_status | lower }}">{{ source.index_status }}</span>
     <span class="status-badge status-{{ source.verification_status | lower }}">{{ source.verification_status }}</span>
     {% if source.verification_status == 'QUEUED' %}
     <button class="btn btn-sm btn-verify"

@@ -12,6 +12,7 @@ from google.genai import types as genai_types
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from documentlm_core.config import settings
+from documentlm_core.services.chroma import get_chroma_client, query_topic_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,8 @@ If prior chapter summaries are provided, briefly acknowledge how this topic buil
 Write only the chapter content — no preamble, no "here is your chapter" introductions.
 """
 
-_COMMENT_INSTRUCTION = """You are an academic tutor responding to a student's question or comment on a passage they are reading.
+_COMMENT_INSTRUCTION = """You are an academic tutor responding to a student's question
+or comment on a passage they are reading.
 
 The student has highlighted a paragraph and asked a question or left a note.
 Provide a clear, helpful response that:
@@ -81,13 +83,23 @@ async def run_chapter_scribe(
     item_title: str,
     topic_id: uuid.UUID,
     session: AsyncSession,
+    item_description: str | None = None,
 ) -> str:
     logger.info("Chapter Scribe starting for item_id=%s title=%r", item_id, item_title)
     from documentlm_core.services.chapter import get_context_summaries
 
+    # Retrieve relevant source chunks from ChromaDB
+    query_text = f"{item_title} {item_description or ''}".strip()
+    chroma_client = get_chroma_client()
+    source_chunks = query_topic_chunks(chroma_client, topic_id, query_text, n_results=10)
+
     context_summaries = await get_context_summaries(session, topic_id, item_id)
 
     prompt_parts = [f"Topic: {item_title}"]
+    if source_chunks:
+        prompt_parts.append(
+            "Relevant source material:\n\n" + "\n\n---\n\n".join(source_chunks)
+        )
     if context_summaries:
         summaries_text = "\n".join(f"- {s}" for s in context_summaries)
         prompt_parts.append(f"Prior chapters in this topic (for context):\n{summaries_text}")

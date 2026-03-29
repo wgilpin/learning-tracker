@@ -99,19 +99,7 @@ async def _read_chapter(session: AsyncSession, chapter: AtomicChapter) -> Chapte
         .where(ChapterSource.chapter_id == chapter.id)
     )
     sources = source_result.scalars().all()
-    source_reads = [
-        SourceRead(
-            id=s.id,
-            topic_id=s.topic_id,
-            url=s.url,
-            doi=s.doi,
-            title=s.title,
-            authors=list(s.authors),
-            publication_date=s.publication_date,
-            verification_status=SourceStatus(s.verification_status),
-        )
-        for s in sources
-    ]
+    source_reads = [SourceRead.model_validate(s) for s in sources]
 
     comment_result = await session.execute(
         select(MarginComment)

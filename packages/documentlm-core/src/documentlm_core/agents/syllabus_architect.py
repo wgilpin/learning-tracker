@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 _APP_NAME = "syllabus_architect"
 
-_INSTRUCTION = """You are an academic curriculum designer. Given a topic, generate a structured syllabus as a JSON array.
+_INSTRUCTION = """You are an academic curriculum designer.
+Given a topic, generate a structured syllabus as a JSON array.
 
 The syllabus must be a two-level hierarchy:
 - Top-level items are broad sections (e.g. "Foundations", "Core Theory", "Applications")
@@ -63,8 +64,14 @@ async def run_syllabus_architect(
     topic_id: uuid.UUID,
     topic_title: str,
     tools: SyllabusToolsProtocol,
+    primary_source_texts: list[str] | None = None,
 ) -> list[uuid.UUID]:
-    logger.info("Syllabus Architect starting for topic_id=%s title=%r", topic_id, topic_title)
+    logger.info(
+        "Syllabus Architect starting for topic_id=%s title=%r primary_sources=%d",
+        topic_id,
+        topic_title,
+        len(primary_source_texts) if primary_source_texts else 0,
+    )
 
     agent = Agent(
         name="syllabus_architect",
@@ -76,9 +83,32 @@ async def run_syllabus_architect(
     session = await session_service.create_session(app_name=_APP_NAME, user_id="system")
     runner = Runner(agent=agent, app_name=_APP_NAME, session_service=session_service)
 
+    # Build user message — inject primary source content when provided
+    if primary_source_texts:
+        if len(primary_source_texts) == 1:
+            source_block = (
+                "Use the following provided course material exactly as the syllabus structure "
+                "(do not invent new sections, preserve the provided structure):\n\n"
+                f"{primary_source_texts[0]}"
+            )
+        else:
+            joined = "\n\n---\n\n".join(primary_source_texts)
+            source_block = (
+                "Synthesise a single coherent syllabus structure from the following provided "
+                "course materials, resolving overlaps and filling gaps. Do not copy any one "
+                "source verbatim — produce one unified structure:\n\n"
+                f"{joined}"
+            )
+        prompt = (
+            f"Generate a syllabus for the topic: {topic_title}\n\n"
+            f"{source_block}"
+        )
+    else:
+        prompt = f"Generate a syllabus for the topic: {topic_title}"
+
     user_message = genai_types.Content(
         role="user",
-        parts=[genai_types.Part(text=f"Generate a syllabus for the topic: {topic_title}")],
+        parts=[genai_types.Part(text=prompt)],
     )
 
     reply_text: str | None = None
@@ -131,5 +161,9 @@ async def run_syllabus_architect(
             )
             created_ids.append(item_id)
 
-    logger.info("Syllabus Architect complete: %d items created for topic_id=%s", len(created_ids), topic_id)
+    logger.info(
+        "Syllabus Architect complete: %d items created for topic_id=%s",
+        len(created_ids),
+        topic_id,
+    )
     return created_ids
