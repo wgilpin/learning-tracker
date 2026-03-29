@@ -1,0 +1,26 @@
+{% if suggestions %}
+<ul class="suggestion-list">
+  {% for s in suggestions %}
+  <li class="suggestion-card">
+    <div class="suggestion-card-body">
+      <p class="suggestion-card-title">{{ s.title }}</p>
+      {% if s.authors %}<p class="suggestion-card-meta">{{ s.authors | join(", ") }}</p>{% endif %}
+      {% if s.url %}<a class="suggestion-card-url" href="{{ s.url }}" target="_blank" rel="noopener">{{ s.url }}</a>{% endif %}
+    </div>
+    {% if s.url %}
+    <form hx-post="/topics/{{ topic_id }}/sources/extract"
+          hx-target="#source-cards"
+          hx-swap="beforeend"
+          hx-on::before-request="disableGenerate()"
+          hx-on::after-request="enableGenerate()">
+      <input type="hidden" name="source_type" value="URL_SCRAPE">
+      <input type="hidden" name="url" value="{{ s.url }}">
+      <button type="submit" class="btn btn-secondary btn-sm">Add</button>
+    </form>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="suggestion-empty">No suggestions found for this topic.</p>
+{% endif %}

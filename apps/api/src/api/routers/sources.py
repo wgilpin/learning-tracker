@@ -183,6 +183,37 @@ async def delete_topic_source(
 
 
 # ---------------------------------------------------------------------------
+# Suggest sources (ArXiv + YouTube search, no DB writes)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/topics/{topic_id}/sources/suggest", response_class=HTMLResponse)
+async def suggest_sources(
+    request: Request,
+    topic_id: uuid.UUID,
+    query: str = Form(...),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Search the web for suggestions; return a card-list partial."""
+    from documentlm_core.agents.academic_scout import search_web, search_youtube
+    from documentlm_core.services.topic import get_topic
+
+    topic = await get_topic(session, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    search_results = await search_web(query)
+    youtube_results = await search_youtube(query)
+    suggestions = search_results + youtube_results
+
+    return templates.TemplateResponse(
+        request,
+        "sources/_suggestions.html",
+        {"suggestions": suggestions, "topic_id": topic_id},
+    )
+
+
+# ---------------------------------------------------------------------------
 # Legacy source queue management (verification / discovery)
 # ---------------------------------------------------------------------------
 

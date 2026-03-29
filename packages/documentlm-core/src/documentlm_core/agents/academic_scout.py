@@ -1,4 +1,4 @@
-"""Academic Scout ADK agent: discovers sources via ArXiv and YouTube."""
+"""Academic Scout ADK agent: discovers sources via SerpApi and YouTube."""
 
 from __future__ import annotations
 
@@ -23,44 +23,37 @@ class _SourceResult(TypedDict, total=False):
     authors: list[str]
 
 
-async def search_arxiv(query: str, max_results: int = 5) -> list[_SourceResult]:
-    """Search ArXiv for papers matching the query. HTTP calls are mockable in tests."""
-    url = "https://export.arxiv.org/api/query"
+async def search_web(query: str, max_results: int = 5) -> list[_SourceResult]:
+    """Search the web via SerpApi. HTTP calls are mockable in tests."""
+    import os
+
+    api_key = os.environ.get("SERPAPI_KEY")
+    if not api_key:
+        logger.info("SERPAPI_KEY not configured — skipping web search")
+        return []
+
     params: dict[str, str | int] = {
-        "search_query": f"all:{query}",
-        "start": 0,
-        "max_results": max_results,
+        "q": query,
+        "num": max_results,
+        "api_key": api_key,
     }
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url, params=params)
+            response = await client.get("https://serpapi.com/search.json", params=params)
+            if response.status_code == 429:
+                logger.warning("SerpApi rate-limited for query=%r — skipping", query)
+                return []
             response.raise_for_status()
-        # Parse Atom feed — simplified extraction
-        import xml.etree.ElementTree as ET
-
-        root = ET.fromstring(response.text)
-        ns = {"atom": "http://www.w3.org/2005/Atom"}
         results: list[_SourceResult] = []
-        for entry in root.findall("atom:entry", ns):
-            title_el = entry.find("atom:title", ns)
-            link_el = entry.find("atom:link[@rel='alternate']", ns)
-            authors = [
-                a.findtext("atom:name", namespaces=ns) or ""
-                for a in entry.findall("atom:author", ns)
-            ]
-            doi_el = entry.find("{http://arxiv.org/schemas/atom}doi")
-            doi_text = doi_el.text if doi_el is not None else None
-            results.append(
-                {
-                    "title": (title_el.text or "").strip() if title_el is not None else "",
-                    "url": link_el.get("href", "") if link_el is not None else "",
-                    "doi": doi_text.strip() if doi_text is not None else None,
-                    "authors": authors,
-                }
-            )
+        for item in response.json().get("organic_results", [])[:max_results]:
+            title = (item.get("title") or "").strip()
+            url = item.get("link")
+            if not title or not url:
+                continue
+            results.append({"title": title, "url": url, "doi": None, "authors": []})
         return results
     except Exception:
-        logger.exception("ArXiv search failed for query=%r", query)
+        logger.exception("SerpApi search failed for query=%r", query)
         return []
 
 
@@ -127,9 +120,9 @@ async def run_academic_scout(
             len(primary_sources),
         )
 
-    logger.info("Academic Scout searching ArXiv for %r", topic_title)
-    arxiv_results = await search_arxiv(topic_title)
-    logger.info("Academic Scout ArXiv returned %d results", len(arxiv_results))
+    logger.info("Academic Scout searching OpenAlex for %r", topic_title)
+    arxiv_results = await search_web(topic_title)
+    logger.info("Academic Scout web search returned %d results", len(arxiv_results))
 
     logger.info("Academic Scout searching YouTube for %r", topic_title)
     youtube_results = await search_youtube(topic_title)

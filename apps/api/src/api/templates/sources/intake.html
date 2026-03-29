@@ -128,6 +128,22 @@
           {% include "sources/_card.html" %}
         {% endfor %}
       </div>
+
+      <div class="suggest-more-wrapper">
+        <form class="suggest-form"
+              hx-post="/topics/{{ topic.id }}/sources/suggest"
+              hx-target="#suggestions"
+              hx-swap="innerHTML"
+              hx-indicator="#suggest-indicator">
+          <input type="text" name="query" class="intake-input suggest-input"
+                 placeholder="e.g. graph theory syllabus" required>
+          <button type="submit" class="btn btn-secondary btn-sm">Suggest sources</button>
+        </form>
+        <span id="suggest-indicator" class="htmx-indicator intake-spinner">
+          <span class="spinner"></span> Searching…
+        </span>
+        <div id="suggestions"></div>
+      </div>
     </section>
 
   </div>{# /intake-columns #}
