@@ -1,0 +1,15 @@
+<div class="chapter-inline" data-chapter-id="{{ chapter.id }}">
+  <h3 class="chapter-title">{{ item.title }}</h3>
+  {% for paragraph in chapter.content.split('\n\n') %}
+  {% if paragraph.strip() %}
+  <div class="chapter-paragraph" id="para-{{ chapter.id }}-{{ loop.index }}">
+    {{ paragraph | md | safe }}
+    <div class="margin-comments" id="comments-para-{{ chapter.id }}-{{ loop.index }}">
+      {% for comment in chapter.margin_comments if comment.paragraph_anchor == 'para-' ~ chapter.id ~ '-' ~ loop.index %}
+      {% include "chapters/_margin_comment.html" %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>

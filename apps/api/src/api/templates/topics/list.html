@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Topics — Learning Tracker{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Your Topics</h1>
+  <button class="btn btn-primary"
+          hx-get="/topics/_new_form"
+          hx-target="#new-topic-form"
+          hx-swap="innerHTML">
+    + New Topic
+  </button>
+</div>
+
+<div id="new-topic-form"></div>
+
+{% if topics %}
+<ul class="topic-list">
+  {% for topic in topics %}
+  <li class="topic-card">
+    <a href="/topics/{{ topic.id }}">
+      <h2>{{ topic.title }}</h2>
+      {% if topic.description %}<p>{{ topic.description }}</p>{% endif %}
+      <span class="topic-date">{{ topic.created_at.strftime('%Y-%m-%d') }}</span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty-state">No topics yet. Create your first topic above.</p>
+{% endif %}
+{% endblock %}

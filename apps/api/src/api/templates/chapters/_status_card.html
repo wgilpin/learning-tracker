@@ -1,0 +1,13 @@
+{% if chapter %}
+<div class="chapter-status-card complete">
+  <p>Chapter ready. <a href="/chapters/{{ chapter.id }}">Read now →</a></p>
+</div>
+{% else %}
+<div class="chapter-status-card pending"
+     hx-get="/chapters/{{ item_id }}/status"
+     hx-trigger="every 2s"
+     hx-target="this"
+     hx-swap="outerHTML">
+  <p>Drafting chapter… <span class="spinner"></span></p>
+</div>
+{% endif %}

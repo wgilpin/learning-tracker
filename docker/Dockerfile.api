@@ -1,0 +1,17 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Copy workspace files
+COPY pyproject.toml .
+COPY packages/ packages/
+COPY apps/ apps/
+
+# Install all workspace packages
+RUN uv sync --no-dev --all-packages
+
+# Run the API
+CMD ["uv", "run", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

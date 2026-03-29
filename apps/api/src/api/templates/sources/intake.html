@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Add Sources — {{ topic.title }}{% endblock %}
+
+{% block content %}
+<div class="intake-page">
+  <div class="intake-header">
+    <h1>{{ topic.title }}</h1>
+    <p class="intake-subtitle">Add sources before generating your syllabus. You can also skip this step.</p>
+  </div>
+
+  <div class="intake-columns">
+
+    {# ── Left: add-source form ─────────────────────────────────────────── #}
+    <section class="intake-form-panel">
+      <h2>Add a source</h2>
+
+      {# Tab nav #}
+      <div class="source-tabs" role="tablist">
+        <button type="button" class="source-tab source-tab--active"
+                role="tab" aria-selected="true"
+                onclick="selectTab(this, 'tab-pdf')">PDF</button>
+        <button type="button" class="source-tab"
+                role="tab" aria-selected="false"
+                onclick="selectTab(this, 'tab-url')">URL</button>
+        <button type="button" class="source-tab"
+                role="tab" aria-selected="false"
+                onclick="selectTab(this, 'tab-youtube')">YouTube</button>
+        <button type="button" class="source-tab"
+                role="tab" aria-selected="false"
+                onclick="selectTab(this, 'tab-text')">Paste text</button>
+      </div>
+
+      {# ── PDF tab ── #}
+      <div id="tab-pdf" class="source-tab-panel">
+        <form hx-post="/topics/{{ topic.id }}/sources/extract"
+              hx-target="#source-cards"
+              hx-swap="beforeend"
+              hx-encoding="multipart/form-data"
+              hx-indicator="#add-indicator"
+              hx-on::before-request="disableGenerate()"
+              hx-on::after-request="enableGenerate()">
+          <input type="hidden" name="source_type" value="PDF_UPLOAD">
+          <label class="intake-label" for="pdf-file">PDF file (max 50 MB)</label>
+          <input id="pdf-file" class="intake-input" type="file" name="file"
+                 accept=".pdf,application/pdf" required>
+          <button type="submit" class="btn btn-primary">Extract PDF</button>
+        </form>
+      </div>
+
+      {# ── URL tab ── #}
+      <div id="tab-url" class="source-tab-panel source-tab-panel--hidden">
+        <form hx-post="/topics/{{ topic.id }}/sources/extract"
+              hx-target="#source-cards"
+              hx-swap="beforeend"
+              hx-indicator="#add-indicator"
+              hx-on::before-request="disableGenerate()"
+              hx-on::after-request="enableGenerate()">
+          <input type="hidden" name="source_type" value="URL_SCRAPE">
+          <label class="intake-label" for="url-input">Page URL</label>
+          <input id="url-input" class="intake-input" type="url" name="url"
+                 placeholder="https://example.com/course-outline" required>
+          <button type="submit" class="btn btn-primary">Fetch URL</button>
+        </form>
+      </div>
+
+      {# ── YouTube tab ── #}
+      <div id="tab-youtube" class="source-tab-panel source-tab-panel--hidden">
+        <form hx-post="/topics/{{ topic.id }}/sources/extract"
+              hx-target="#source-cards"
+              hx-swap="beforeend"
+              hx-indicator="#add-indicator"
+              hx-on::before-request="disableGenerate()"
+              hx-on::after-request="enableGenerate()">
+          <input type="hidden" name="source_type" value="YOUTUBE_TRANSCRIPT">
+          <label class="intake-label" for="yt-input">YouTube URL</label>
+          <input id="yt-input" class="intake-input" type="url" name="url"
+                 placeholder="https://www.youtube.com/watch?v=..." required>
+          <button type="submit" class="btn btn-primary">Fetch transcript</button>
+        </form>
+      </div>
+
+      {# ── Raw text tab ── #}
+      <div id="tab-text" class="source-tab-panel source-tab-panel--hidden">
+        <form hx-post="/topics/{{ topic.id }}/sources/extract"
+              hx-target="#source-cards"
+              hx-swap="beforeend"
+              hx-indicator="#add-indicator"
+              hx-on::before-request="disableGenerate()"
+              hx-on::after-request="enableGenerate()">
+          <input type="hidden" name="source_type" value="RAW_TEXT">
+          <label class="intake-label" for="text-input">Paste text</label>
+          <textarea id="text-input" class="intake-textarea" name="text"
+                    rows="8" placeholder="Paste course description, learning objectives…"
+                    required></textarea>
+          <button type="submit" class="btn btn-primary">Add text</button>
+        </form>
+      </div>
+
+      <span id="add-indicator" class="htmx-indicator intake-spinner">
+        <span class="spinner"></span> Processing…
+      </span>
+    </section>
+
+    {# ── Right: added sources + generate ──────────────────────────────── #}
+    <section class="intake-sources-panel">
+      <div class="intake-sources-header">
+        <h2>Added sources</h2>
+        <form hx-post="/topics/{{ topic.id }}/generate"
+              hx-boost="false"
+              id="generate-form">
+          <button type="submit" class="btn btn-cta" id="generate-btn">
+            Generate syllabus →
+          </button>
+        </form>
+      </div>
+
+      <p class="intake-skip">
+        No sources yet?
+        <a href="/topics/{{ topic.id }}/generate"
+           hx-boost="false"
+           onclick="return confirmGenerate()">Skip and generate</a>
+      </p>
+
+      <div id="source-cards" class="source-cards-list"
+           hx-on:sourceDeleted="refreshGenerateBtn()">
+        {% for source in primary_sources %}
+          {% include "sources/_card.html" %}
+        {% endfor %}
+      </div>
+    </section>
+
+  </div>{# /intake-columns #}
+</div>
+
+<script>
+function selectTab(btn, panelId) {
+  document.querySelectorAll('.source-tab').forEach(function(t) {
+    t.classList.remove('source-tab--active');
+    t.setAttribute('aria-selected', 'false');
+  });
+  document.querySelectorAll('.source-tab-panel').forEach(function(p) {
+    p.classList.add('source-tab-panel--hidden');
+  });
+  btn.classList.add('source-tab--active');
+  btn.setAttribute('aria-selected', 'true');
+  document.getElementById(panelId).classList.remove('source-tab-panel--hidden');
+}
+
+var _inflight = 0;
+
+function disableGenerate() {
+  _inflight++;
+  var btn = document.getElementById('generate-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Extracting…'; }
+}
+
+function enableGenerate() {
+  _inflight = Math.max(0, _inflight - 1);
+  if (_inflight === 0) {
+    var btn = document.getElementById('generate-btn');
+    if (btn) { btn.disabled = false; btn.textContent = 'Generate syllabus →'; }
+  }
+}
+
+function refreshGenerateBtn() {
+  // Re-enable after delete if no inflight requests
+  if (_inflight === 0) {
+    var btn = document.getElementById('generate-btn');
+    if (btn) { btn.disabled = false; }
+  }
+}
+
+function confirmGenerate() {
+  var cards = document.querySelectorAll('.source-cards-list .source-card:not(.source-card--error)');
+  if (cards.length === 0) { return true; }
+  return confirm('Skip added sources and generate from scratch?');
+}
+</script>
+{% endblock %}

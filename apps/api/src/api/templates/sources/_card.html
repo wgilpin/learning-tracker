@@ -1,0 +1,39 @@
+{% if error %}
+{# Error card — extraction failed #}
+<div class="source-card source-card--error" id="source-card-error">
+  <div class="source-card-header">
+    <span class="source-type-badge source-type-badge--error">{{ source_type | replace('_', ' ') | title }}</span>
+    <span class="source-card-status source-card-status--error">Failed</span>
+  </div>
+  <p class="source-card-error-msg">{{ error }}</p>
+</div>
+{% else %}
+{# Success card #}
+<div class="source-card{% if was_duplicate %} source-card--duplicate{% endif %}"
+     id="source-card-{{ source.id }}">
+  <div class="source-card-header">
+    <span class="source-type-badge source-type-badge--{{ source.source_type | lower }}">
+      {{ source.source_type | replace('_', ' ') | title }}
+    </span>
+    {% if was_duplicate %}
+    <span class="source-card-notice">Already added</span>
+    {% endif %}
+    <button class="source-card-remove"
+            hx-delete="/topics/{{ source.topic_id }}/sources/{{ source.id }}"
+            hx-target="#source-card-{{ source.id }}"
+            hx-swap="outerHTML"
+            aria-label="Remove source">
+      &times;
+    </button>
+  </div>
+  <p class="source-card-title">{{ source.title }}</p>
+  {% if source.url %}
+  <a href="{{ source.url }}" class="source-card-url" target="_blank" rel="noopener">
+    {{ source.url | truncate(60) }}
+  </a>
+  {% endif %}
+  {% if source.content %}
+  <p class="source-card-preview">{{ source.content[:200] }}{% if source.content | length > 200 %}…{% endif %}</p>
+  {% endif %}
+</div>
+{% endif %}

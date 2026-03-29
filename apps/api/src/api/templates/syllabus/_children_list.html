@@ -1,0 +1,7 @@
+{% if children_with_flags %}
+{% for child, is_leaf in children_with_flags %}
+{% include "syllabus/_child_item.html" %}
+{% endfor %}
+{% else %}
+<li class="syllabus-child empty-state">No sub-topics.</li>
+{% endif %}

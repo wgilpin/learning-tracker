@@ -1,0 +1,43 @@
+{% if pending %}
+<li class="source-row pending">
+  <span class="spinner"></span> Discovering sources…
+</li>
+{% else %}
+<li class="source-row source-{{ source.verification_status | lower }}" id="source-{{ source.id }}">
+  <div class="source-info">
+    <span class="source-title">
+      {% if source.is_primary %}
+      <span class="source-primary-badge">Primary</span>
+      {% endif %}
+      {{ source.title }}
+    </span>
+    {% if source.authors %}
+    <span class="source-authors">{{ source.authors | join(', ') }}</span>
+    {% endif %}
+    {% if source.doi %}
+    <a href="https://doi.org/{{ source.doi }}" class="source-link" target="_blank" rel="noopener">DOI</a>
+    {% elif source.url %}
+    <a href="{{ source.url }}" class="source-link" target="_blank" rel="noopener">Link</a>
+    {% endif %}
+  </div>
+  <div class="source-actions">
+    <span class="source-type-badge source-type-badge--{{ source.source_type | lower }}">{{ source.source_type | replace('_', ' ') | title }}</span>
+    <span class="status-badge status-index-{{ source.index_status | lower }}">{{ source.index_status }}</span>
+    <span class="status-badge status-{{ source.verification_status | lower }}">{{ source.verification_status }}</span>
+    {% if source.verification_status == 'QUEUED' %}
+    <button class="btn btn-sm btn-verify"
+            hx-patch="/sources/{{ source.id }}/verify"
+            hx-target="closest .source-row"
+            hx-swap="outerHTML">
+      Verify
+    </button>
+    <button class="btn btn-sm btn-reject"
+            hx-patch="/sources/{{ source.id }}/reject"
+            hx-target="closest .source-row"
+            hx-swap="outerHTML">
+      Reject
+    </button>
+    {% endif %}
+  </div>
+</li>
+{% endif %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Sources — Learning Tracker{% endblock %}
+
+{% block content %}
+<div class="sources-page">
+  <div class="page-header">
+    <h1>Source Queue</h1>
+    <button class="btn btn-primary"
+            hx-post="/topics/{{ topic_id }}/sources/discover"
+            hx-target="#source-queue"
+            hx-swap="afterbegin">
+      Discover Sources
+    </button>
+  </div>
+
+  <div id="source-queue">
+    {% if sources %}
+    <ul class="source-list">
+      {% for source in sources %}
+      {% set source=source %}
+      {% include "sources/_row.html" %}
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty-state">No sources yet. Click "Discover Sources" to find relevant papers.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
