@@ -106,8 +106,7 @@
     <section class="intake-sources-panel">
       <div class="intake-sources-header">
         <h2>Added sources</h2>
-        <form hx-post="/topics/{{ topic.id }}/generate"
-              hx-boost="false"
+        <form method="post" action="/topics/{{ topic.id }}/generate"
               id="generate-form">
           <button type="submit" class="btn btn-cta" id="generate-btn">
             Generate syllabus →
