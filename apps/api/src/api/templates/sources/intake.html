@@ -143,6 +143,20 @@
           <span class="spinner"></span> Searching…
         </span>
         <div id="suggestions"></div>
+
+        <form class="suggest-form"
+              hx-post="/topics/{{ topic.id }}/sources/search-paperstore"
+              hx-target="#paperstore-suggestions"
+              hx-swap="innerHTML"
+              hx-indicator="#paperstore-indicator">
+          <input type="text" name="query" class="intake-input suggest-input"
+                 placeholder="e.g. attention mechanism" required>
+          <button type="submit" class="btn btn-secondary btn-sm">Search Paperstore</button>
+        </form>
+        <span id="paperstore-indicator" class="htmx-indicator intake-spinner">
+          <span class="spinner"></span> Searching…
+        </span>
+        <div id="paperstore-suggestions"></div>
       </div>
     </section>
 

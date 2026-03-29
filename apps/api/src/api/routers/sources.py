@@ -65,6 +65,7 @@ async def post_extract_source(
     file: UploadFile | None = File(default=None),
     url: str | None = Form(default=None),
     text: str | None = Form(default=None),
+    title: str | None = Form(default=None),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Extract a source and return an HTMX source card partial."""
@@ -82,7 +83,7 @@ async def post_extract_source(
         ) from exc
 
     try:
-        title, content, source_url = await _extract(stype, file, url, text)
+        derived_title, content, source_url = await _extract(stype, file, url, text)
     except (ValueError, Exception) as exc:
         logger.exception(
             "Source extraction failed type=%s topic_id=%s", source_type, topic_id
@@ -98,7 +99,7 @@ async def post_extract_source(
     data = PrimarySourceCreate(
         topic_id=topic_id,
         source_type=stype,
-        title=title,
+        title=title or derived_title,
         content=content,
         url=source_url,
         content_hash=content_hash,
@@ -209,7 +210,60 @@ async def suggest_sources(
     return templates.TemplateResponse(
         request,
         "sources/_suggestions.html",
-        {"suggestions": suggestions, "topic_id": topic_id},
+        {
+            "suggestions": suggestions,
+            "topic_id": topic_id,
+            "section_title": "Web & YouTube suggestions",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Paperstore search (no DB writes)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/topics/{topic_id}/sources/search-paperstore", response_class=HTMLResponse)
+async def search_paperstore(
+    request: Request,
+    topic_id: uuid.UUID,
+    query: str = Form(...),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Search papers.teleosis.ai and return a paperstore suggestions partial."""
+    import os
+
+    import httpx
+    from documentlm_core.services.topic import get_topic
+
+    topic = await get_topic(session, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    token = os.environ.get("PAPERSTORE_API_TOKEN", "")
+    suggestions: list[dict] = []
+
+    if token:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    "https://papers.teleosis.ai/api/search",
+                    params={"q": query, "limit": 10},
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+                resp.raise_for_status()
+                suggestions = resp.json()
+        except Exception:
+            logger.exception("Paperstore search failed query=%r topic_id=%s", query, topic_id)
+
+    return templates.TemplateResponse(
+        request,
+        "sources/_paperstore_suggestions.html",
+        {
+            "suggestions": suggestions,
+            "topic_id": topic_id,
+            "section_title": "Paperstore results",
+        },
     )
 
 

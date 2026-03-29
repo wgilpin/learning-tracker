@@ -6,9 +6,21 @@
     <div class="suggestion-card-body">
       <p class="suggestion-card-title">{{ s.title }}</p>
       {% if s.authors %}<p class="suggestion-card-meta">{{ s.authors | join(", ") }}</p>{% endif %}
-      {% if s.url %}<a class="suggestion-card-url" href="{{ s.url }}" target="_blank" rel="noopener">{{ s.url }}</a>{% endif %}
+      {% if s.published_date %}<p class="suggestion-card-meta">{{ s.published_date }}</p>{% endif %}
+      {% if s.tags %}<p class="suggestion-card-meta">{{ s.tags | join(", ") }}</p>{% endif %}
     </div>
-    {% if s.url %}
+    {% if s.extracted_text %}
+    <form hx-post="/topics/{{ topic_id }}/sources/extract"
+          hx-target="#source-cards"
+          hx-swap="beforeend"
+          hx-on::before-request="disableGenerate()"
+          hx-on::after-request="enableGenerate()">
+      <input type="hidden" name="source_type" value="RAW_TEXT">
+      <input type="hidden" name="title" value="{{ s.title }}">
+      <textarea name="text" style="display:none">{{ s.extracted_text }}</textarea>
+      <button type="submit" class="btn btn-secondary btn-sm">Add</button>
+    </form>
+    {% elif s.url %}
     <form hx-post="/topics/{{ topic_id }}/sources/extract"
           hx-target="#source-cards"
           hx-swap="beforeend"
@@ -23,5 +35,5 @@
   {% endfor %}
 </ul>
 {% else %}
-<p class="suggestion-empty">No suggestions found for this topic.</p>
+<p class="suggestion-empty">No Paperstore results found.</p>
 {% endif %}
