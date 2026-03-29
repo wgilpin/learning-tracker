@@ -39,3 +39,4 @@ Thumbs.db
 # Docker
 docker/postgres/data/
 TODO.md
+chroma_data/chroma.sqlite3
