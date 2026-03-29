@@ -90,10 +90,14 @@ async def run_chapter_scribe(
 
     # Retrieve relevant source chunks from ChromaDB
     query_text = f"{item_title} {item_description or ''}".strip()
+    logger.info("Chapter Scribe querying ChromaDB for chunks related to %r", item_title)
     chroma_client = get_chroma_client()
     source_chunks = query_topic_chunks(chroma_client, topic_id, query_text, n_results=10)
+    logger.info("Chapter Scribe retrieved %d source chunk(s) from ChromaDB", len(source_chunks))
 
+    logger.info("Chapter Scribe fetching prior chapter summaries for context")
     context_summaries = await get_context_summaries(session, topic_id, item_id)
+    logger.info("Chapter Scribe found %d prior chapter summary(ies)", len(context_summaries))
 
     prompt_parts = [f"Topic: {item_title}"]
     if source_chunks:
@@ -105,8 +109,9 @@ async def run_chapter_scribe(
         prompt_parts.append(f"Prior chapters in this topic (for context):\n{summaries_text}")
     prompt_parts.append("Write the chapter now.")
 
+    logger.info("Chapter Scribe calling LLM to draft chapter %r (model=%s)", item_title, settings.gemini_model)
     content = await _run_agent(_CHAPTER_INSTRUCTION, "\n\n".join(prompt_parts))
-    logger.info("Chapter Scribe complete for item_id=%s", item_id)
+    logger.info("Chapter Scribe complete for item_id=%s chars=%d", item_id, len(content))
     return content
 
 
@@ -115,11 +120,12 @@ async def respond_to_comment(
     chapter_id: uuid.UUID,
     session: AsyncSession,
 ) -> str:
-    logger.info("Chapter Scribe responding to comment_id=%s", comment_id)
+    logger.info("Chapter Scribe responding to comment_id=%s on chapter_id=%s", comment_id, chapter_id)
     from sqlalchemy import select
 
     from documentlm_core.db.models import AtomicChapter, MarginComment
 
+    logger.info("Chapter Scribe fetching comment and chapter content")
     comment_result = await session.execute(
         select(MarginComment).where(MarginComment.id == comment_id)
     )
@@ -134,6 +140,11 @@ async def respond_to_comment(
     if chapter is None:
         raise ValueError(f"AtomicChapter {chapter_id} not found")
 
+    logger.info(
+        "Chapter Scribe calling LLM to answer comment on paragraph %r (model=%s)",
+        comment.paragraph_anchor,
+        settings.gemini_model,
+    )
     prompt = (
         f"The student is reading a chapter. They highlighted the following paragraph:\n\n"
         f"[Paragraph anchor: {comment.paragraph_anchor}]\n\n"
@@ -142,5 +153,5 @@ async def respond_to_comment(
     )
 
     response = await _run_agent(_COMMENT_INSTRUCTION, prompt)
-    logger.info("Chapter Scribe comment response complete for comment_id=%s", comment_id)
+    logger.info("Chapter Scribe comment response complete for comment_id=%s chars=%d", comment_id, len(response))
     return response

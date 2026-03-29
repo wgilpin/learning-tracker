@@ -127,10 +127,16 @@ async def run_academic_scout(
             len(primary_sources),
         )
 
+    logger.info("Academic Scout searching ArXiv for %r", topic_title)
     arxiv_results = await search_arxiv(topic_title)
+    logger.info("Academic Scout ArXiv returned %d results", len(arxiv_results))
+
+    logger.info("Academic Scout searching YouTube for %r", topic_title)
     youtube_results = await search_youtube(topic_title)
+    logger.info("Academic Scout YouTube returned %d results", len(youtube_results))
 
     all_results = arxiv_results + youtube_results
+    logger.info("Academic Scout persisting %d discovered sources", len(all_results))
     created_ids: list[uuid.UUID] = []
 
     for result in all_results:
@@ -145,6 +151,7 @@ async def run_academic_scout(
             continue
 
         try:
+            logger.info("Academic Scout persisting source title=%r", title)
             source = await create_source(
                 session,
                 SourceCreate(
@@ -156,13 +163,14 @@ async def run_academic_scout(
                 ),
             )
             created_ids.append(source.id)
+            logger.info("Academic Scout extracting and indexing source_id=%s", source.id)
             await extract_and_index_source(source.id, session)
             await session.commit()
         except Exception:
             logger.exception("Failed to persist source title=%r", title)
 
     logger.info(
-        "Academic Scout completed topic_id=%s sources_found=%d",
+        "Academic Scout completed topic_id=%s sources_created=%d",
         topic_id,
         len(created_ids),
     )

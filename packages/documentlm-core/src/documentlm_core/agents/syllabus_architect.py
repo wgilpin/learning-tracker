@@ -111,6 +111,7 @@ async def run_syllabus_architect(
         parts=[genai_types.Part(text=prompt)],
     )
 
+    logger.info("Syllabus Architect calling LLM (model=%s)", settings.gemini_model)
     reply_text: str | None = None
     async for event in runner.run_async(
         user_id="system",
@@ -124,6 +125,8 @@ async def run_syllabus_architect(
     if not reply_text:
         raise RuntimeError("Syllabus Architect returned no response")
 
+    logger.info("Syllabus Architect received LLM response — parsing JSON")
+
     # Strip markdown code fences if present
     text = reply_text.strip()
     if text.startswith("```"):
@@ -131,12 +134,21 @@ async def run_syllabus_architect(
         text = text.rsplit("```", 1)[0]
 
     items = json.loads(text)
-    logger.info("Syllabus Architect parsed %d items for topic=%r", len(items), topic_title)
+    parents = [i for i in items if i.get("parent") is None]
+    children = [i for i in items if i.get("parent") is not None]
+    logger.info(
+        "Syllabus Architect parsed %d items (%d sections, %d sub-topics) for topic=%r",
+        len(items),
+        len(parents),
+        len(children),
+        topic_title,
+    )
 
     # First pass: create all parent (null-parent) items and record title → id
     title_to_id: dict[str, uuid.UUID] = {}
     created_ids: list[uuid.UUID] = []
 
+    logger.info("Syllabus Architect persisting %d top-level sections", len(parents))
     for item in items:
         if item.get("parent") is None:
             item_id = await tools.create_syllabus_item(
@@ -149,6 +161,7 @@ async def run_syllabus_architect(
             created_ids.append(item_id)
 
     # Second pass: create children
+    logger.info("Syllabus Architect persisting %d sub-topics", len(children))
     for item in items:
         parent_title = item.get("parent")
         if parent_title is not None:
