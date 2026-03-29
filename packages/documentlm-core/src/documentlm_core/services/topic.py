@@ -39,6 +39,16 @@ async def list_topics(session: AsyncSession) -> list[TopicRead]:
     return [_to_read(t) for t in result.scalars().all()]
 
 
+async def delete_topic(session: AsyncSession, topic_id: uuid.UUID) -> None:
+    result = await session.execute(select(Topic).where(Topic.id == topic_id))
+    topic = result.scalar_one_or_none()
+    if topic is None:
+        return
+    await session.delete(topic)
+    await session.flush()
+    logger.info("Deleted topic id=%s", topic_id)
+
+
 def _to_read(topic: Topic) -> TopicRead:
     return TopicRead(
         id=topic.id,

@@ -9,7 +9,7 @@ from documentlm_core.db.session import get_session
 from documentlm_core.schemas import TopicCreate
 from documentlm_core.services.source import list_sources
 from documentlm_core.services.syllabus import list_syllabus_items
-from documentlm_core.services.topic import create_topic, get_topic, list_topics
+from documentlm_core.services.topic import create_topic, delete_topic, get_topic, list_topics
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,8 +24,12 @@ router = APIRouter()
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request, session: AsyncSession = Depends(get_session)) -> Response:
+    from documentlm_core.config import settings
+
     topics = await list_topics(session)
-    return templates.TemplateResponse(request, "topics/list.html", {"topics": topics})
+    return templates.TemplateResponse(
+        request, "topics/list.html", {"topics": topics, "debug": settings.debug}
+    )
 
 
 @router.post("/topics")
@@ -43,6 +47,17 @@ async def post_topic(
 
     logger.info("Created topic topic_id=%s — redirecting to source intake", topic.id)
     return RedirectResponse(url=f"/topics/{topic.id}/sources", status_code=303)
+
+
+@router.delete("/topics/{topic_id}", response_class=HTMLResponse)
+async def delete_topic_endpoint(
+    topic_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    await delete_topic(session, topic_id)
+    await session.commit()
+    logger.info("Deleted topic topic_id=%s", topic_id)
+    return Response(status_code=200, headers={"HX-Trigger": "topicDeleted"})
 
 
 @router.get("/topics/_new_form", response_class=HTMLResponse)

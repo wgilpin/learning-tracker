@@ -18,12 +18,21 @@
 {% if topics %}
 <ul class="topic-list">
   {% for topic in topics %}
-  <li class="topic-card">
+  <li class="topic-card" id="topic-{{ topic.id }}">
     <a href="/topics/{{ topic.id }}">
       <h2>{{ topic.title }}</h2>
       {% if topic.description %}<p>{{ topic.description }}</p>{% endif %}
       <span class="topic-date">{{ topic.created_at.strftime('%Y-%m-%d') }}</span>
     </a>
+    {% if debug %}
+    <button class="btn btn-danger btn-sm"
+            hx-delete="/topics/{{ topic.id }}"
+            hx-target="#topic-{{ topic.id }}"
+            hx-swap="outerHTML"
+            hx-confirm="Delete '{{ topic.title }}' and all its content? This cannot be undone.">
+      Delete
+    </button>
+    {% endif %}
   </li>
   {% endfor %}
 </ul>
