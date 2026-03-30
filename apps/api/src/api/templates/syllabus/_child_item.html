@@ -12,7 +12,7 @@
           hx-target="#reading-panel"
           hx-swap="innerHTML"
           hx-push-url="/topics/{{ child.topic_id }}?lesson={{ child.id }}">
-    {{ child.title }}
+    {% if not has_chapter %}<em>{{ child.title }}</em>{% else %}{{ child.title }}{% endif %}
     {% if child.description %}<span class="syllabus-child-desc">{{ child.description }}</span>{% endif %}
   </button>
   {% else %}

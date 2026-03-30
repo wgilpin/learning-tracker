@@ -1,5 +1,5 @@
 {% if children_with_flags %}
-{% for child, is_leaf in children_with_flags %}
+{% for child, is_leaf, has_chapter in children_with_flags %}
 {% include "syllabus/_child_item.html" %}
 {% endfor %}
 {% else %}

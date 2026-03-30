@@ -6,11 +6,13 @@ import logging
 import uuid
 
 from api.templates_config import templates
+from documentlm_core.db.models import AtomicChapter
 from documentlm_core.db.session import get_session
 from documentlm_core.schemas import SyllabusItemStatusUpdate, SyllabusStatus
 from documentlm_core.services.syllabus import list_children, list_top_level_items, update_status
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
@@ -38,10 +40,28 @@ async def get_children(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     children = await list_children(session, item_id)
-    children_with_flags: list[tuple] = []
+    leaf_ids: list[uuid.UUID] = []
+    is_leaf_map: dict[uuid.UUID, bool] = {}
     for child in children:
         grandchildren = await list_children(session, child.id)
-        children_with_flags.append((child, len(grandchildren) == 0))
+        is_leaf = len(grandchildren) == 0
+        is_leaf_map[child.id] = is_leaf
+        if is_leaf:
+            leaf_ids.append(child.id)
+
+    items_with_chapters: set[uuid.UUID] = set()
+    if leaf_ids:
+        result = await session.execute(
+            select(AtomicChapter.syllabus_item_id).where(
+                AtomicChapter.syllabus_item_id.in_(leaf_ids)
+            )
+        )
+        items_with_chapters = {row[0] for row in result}
+
+    children_with_flags: list[tuple] = [
+        (child, is_leaf_map[child.id], child.id in items_with_chapters)
+        for child in children
+    ]
     return templates.TemplateResponse(
         request, "syllabus/_children_list.html", {"children_with_flags": children_with_flags}
     )
@@ -64,4 +84,10 @@ async def patch_status(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    return templates.TemplateResponse(request, "syllabus/_child_item.html", {"child": item, "is_leaf": True})
+    result = await session.execute(
+        select(AtomicChapter.syllabus_item_id).where(AtomicChapter.syllabus_item_id == item_id)
+    )
+    has_chapter = result.scalar_one_or_none() is not None
+    return templates.TemplateResponse(
+        request, "syllabus/_child_item.html", {"child": item, "is_leaf": True, "has_chapter": has_chapter}
+    )
