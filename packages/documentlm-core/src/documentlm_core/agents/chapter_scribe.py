@@ -73,10 +73,17 @@ class ChapterDraft:
 
 
 def _format_source_for_prompt(n: int, source) -> str:  # source: Source ORM object
-    authors = ", ".join(source.authors) if source.authors else "Unknown"
-    year = source.publication_date.year if source.publication_date else "n.d."
-    doi_or_url = f"DOI:{source.doi}" if source.doi else (source.url or "")
-    return f"[{n}] {authors} ({year}). {source.title}. {doi_or_url}".strip(". ")
+    parts: list[str] = []
+    if source.authors:
+        parts.append(", ".join(source.authors))
+    if source.publication_date:
+        parts.append(f"({source.publication_date.year})")
+    parts.append(source.title)
+    if source.doi:
+        parts.append(f"DOI:{source.doi}")
+    elif source.url:
+        parts.append(source.url)
+    return f"[{n}] " + " ".join(parts)
 
 
 def _extract_cited_indices(content: str) -> set[int]:
@@ -209,9 +216,19 @@ async def run_chapter_scribe(
 
     cited_indices = _extract_cited_indices(content)
     cited_source_ids = [source_map[n] for n in sorted(cited_indices) if n in source_map]
-    logger.info("ç extracted %d citation(s) from content", len(cited_source_ids))
-    if len(cited_source_ids) == 0:
-        logger.info("Chapter Scribe Content Returned: %s", content)
+    logger.info("Chapter Scribe extracted %d citation(s) from content", len(cited_source_ids))
+
+    if not cited_source_ids:
+        logger.error(
+            "Chapter Scribe returned no citations for item_id=%s. Content:\n%s",
+            item_id,
+            content,
+        )
+        raise RuntimeError(
+            f"Chapter Scribe generated content with zero citations for item_id={item_id} "
+            f"title={item_title!r}. The LLM ignored grounding instructions. "
+            "Check that sources contain relevant content for this chapter topic."
+        )
 
     return ChapterDraft(content=content, cited_source_ids=cited_source_ids)
 

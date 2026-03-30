@@ -1783,6 +1783,10 @@ button.syllabus-child-btn:hover { background: #eff6ff; color: #1d4ed8; }
 .citation-title { font-weight: 500; display: block; }
 .citation-authors, .citation-date { color: #6b7280; font-size: 0.8rem; }
 .citation-doi, .citation-url { font-size: 0.75rem; color: #2563eb; }
+.citation-ref { font-size: 0.75em; color: #2563eb; text-decoration: none; vertical-align: super; }
+.citation-ref:hover { text-decoration: underline; }
+.reference-item { font-size: 0.875rem; line-height: 1.6; color: #374151; margin-bottom: 0.5rem; }
+.ref-num { font-weight: 600; color: #111827; margin-right: 0.25rem; }
 
 /* Margin comments */
 .margin-comments { margin-top: 0.5rem; }
