@@ -19,9 +19,31 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+
+_LEVEL_COLORS = {
+    "DEBUG": "\033[36m",     # cyan
+    "INFO": "\033[32m",      # green
+    "WARNING": "\033[33m",   # yellow
+    "ERROR": "\033[31m",     # red
+    "CRITICAL": "\033[1;31m",# bold red
+}
+_RESET = "\033[0m"
+
+
+class _ColorFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        color = _LEVEL_COLORS.get(record.levelname, "")
+        record.levelname = f"{color}{record.levelname}{_RESET}" if color else record.levelname
+        return super().format(record)
+
+
+_handler = logging.StreamHandler()
+_handler.setFormatter(
+    _ColorFormatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+)
 logging.basicConfig(
     level=getattr(logging, _LOG_LEVEL, logging.INFO),
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    handlers=[_handler],
 )
 
 
