@@ -16,6 +16,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Guards against duplicate background drafts when polling fires before the first draft completes.
+_drafting_items: set[uuid.UUID] = set()
+_failed_items: set[uuid.UUID] = set()
+
 
 @router.get("/syllabus-items/{item_id}/chapter", response_class=HTMLResponse)
 async def get_or_trigger_chapter(
@@ -39,8 +43,13 @@ async def get_or_trigger_chapter(
         chapter = await get_chapter(session, existing.id)
         return templates.TemplateResponse(request, "chapters/_inline.html", {"chapter": chapter, "item": item})
 
-    import asyncio
-    asyncio.create_task(_draft_chapter_bg(item_id, item.topic_id, item.title, item.description))
+    if item_id in _failed_items:
+        return templates.TemplateResponse(request, "chapters/_failed.html", {"item_id": item_id})
+
+    if item_id not in _drafting_items:
+        import asyncio
+        _drafting_items.add(item_id)
+        asyncio.create_task(_draft_chapter_bg(item_id, item.topic_id, item.title, item.description))
     return templates.TemplateResponse(request, "chapters/_generating.html", {"item_id": item_id})
 
 
@@ -74,9 +83,10 @@ async def post_chapter_draft(
     )
     chapter = existing.scalar_one_or_none()
 
-    if chapter is None:
+    if chapter is None and item_id not in _drafting_items:
         import asyncio
 
+        _drafting_items.add(item_id)
         asyncio.create_task(_draft_chapter_bg(item_id, item.topic_id, item.title, item.description))
 
     return templates.TemplateResponse(
@@ -243,17 +253,25 @@ async def _draft_chapter_bg(
     from documentlm_core.db.session import AsyncSessionFactory
     from documentlm_core.services.chapter import create_chapter
 
-    async with AsyncSessionFactory() as session:
-        try:
-            content = await run_chapter_scribe(
-                item_id, item_title, topic_id, session, item_description=item_description
-            )
-            await create_chapter(session, item_id, topic_id, content, [])
-            await session.commit()
-            logger.info("Chapter drafted for item_id=%s", item_id)
-        except Exception:
-            logger.exception("Chapter drafting failed for item_id=%s", item_id)
-            await session.rollback()
+    try:
+        async with AsyncSessionFactory() as session:
+            try:
+                draft = await run_chapter_scribe(
+                    item_id, item_title, topic_id, session, item_description=item_description
+                )
+                await create_chapter(session, item_id, topic_id, draft.content, draft.cited_source_ids)
+                await session.commit()
+                logger.info(
+                    "Chapter drafted for item_id=%s citations=%d",
+                    item_id,
+                    len(draft.cited_source_ids),
+                )
+            except Exception:
+                logger.exception("Chapter drafting failed for item_id=%s", item_id)
+                await session.rollback()
+                _failed_items.add(item_id)
+    finally:
+        _drafting_items.discard(item_id)
 
 
 async def _respond_to_comment_bg(comment_id: uuid.UUID, chapter_id: uuid.UUID) -> None:

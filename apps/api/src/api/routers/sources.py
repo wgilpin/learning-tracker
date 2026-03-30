@@ -12,8 +12,6 @@ from documentlm_core.services.source import (
     create_primary_source,
     delete_source,
     list_sources,
-    reject_source,
-    verify_source,
 )
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
@@ -174,12 +172,15 @@ async def delete_topic_source(
     source_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
 ) -> Response:
+    from documentlm_core.services.chroma import delete_source_chunks, get_chroma_client
+
     try:
         await delete_source(session, source_id)
         await session.commit()
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    delete_source_chunks(get_chroma_client(), topic_id, source_id)
     return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": "sourceDeleted"})
 
 
@@ -265,72 +266,6 @@ async def search_paperstore(
             "section_title": "Paperstore results",
         },
     )
-
-
-# ---------------------------------------------------------------------------
-# Legacy source queue management (verification / discovery)
-# ---------------------------------------------------------------------------
-
-
-@router.get("/topics/{topic_id}/sources/queue", response_class=HTMLResponse)
-async def get_sources_queue(
-    request: Request,
-    topic_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-) -> Response:
-    sources = await list_sources(session, topic_id)
-    return templates.TemplateResponse(
-        request, "sources/queue.html", {"sources": sources, "topic_id": topic_id}
-    )
-
-
-@router.post("/topics/{topic_id}/sources/discover", response_class=HTMLResponse)
-async def discover_sources(
-    request: Request,
-    topic_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-) -> Response:
-    from documentlm_core.services.topic import get_topic
-
-    topic = await get_topic(session, topic_id)
-    if topic is None:
-        raise HTTPException(status_code=404, detail="Topic not found")
-
-    import asyncio
-
-    asyncio.create_task(_scout_bg(topic_id, topic.title))
-
-    return templates.TemplateResponse(
-        request, "sources/_row.html", {"pending": True, "topic_id": topic_id}
-    )
-
-
-@router.patch("/sources/{source_id}/verify", response_class=HTMLResponse)
-async def patch_verify(
-    request: Request,
-    source_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-) -> Response:
-    try:
-        source = await verify_source(session, source_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    return templates.TemplateResponse(request, "sources/_row.html", {"source": source})
-
-
-@router.patch("/sources/{source_id}/reject", response_class=HTMLResponse)
-async def patch_reject(
-    request: Request,
-    source_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
-) -> Response:
-    try:
-        source = await reject_source(session, source_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    return templates.TemplateResponse(request, "sources/_row.html", {"source": source})
 
 
 async def _scout_bg(topic_id: uuid.UUID, topic_title: str) -> None:

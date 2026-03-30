@@ -124,6 +124,50 @@ class TestQueryTopicChunks:
         assert len(results) == 1
 
 
+class TestQueryTopicChunksWithSources:
+    def test_returns_chunk_source_pairs(self, chroma_client: chromadb.ClientAPI) -> None:
+        from documentlm_core.services.chroma import query_topic_chunks_with_sources
+
+        topic_id = uuid.uuid4()
+        source_id = uuid.uuid4()
+        upsert_source_chunks(chroma_client, topic_id, source_id, ["attention mechanism"])
+
+        results = query_topic_chunks_with_sources(chroma_client, topic_id, "attention", n_results=1)
+
+        assert len(results) == 1
+        chunk_text, returned_source_id = results[0]
+        assert isinstance(chunk_text, str)
+        assert returned_source_id == source_id
+
+    def test_multiple_sources_returns_correct_ids(self, chroma_client: chromadb.ClientAPI) -> None:
+        from documentlm_core.services.chroma import query_topic_chunks_with_sources
+
+        topic_id = uuid.uuid4()
+        source_a = uuid.uuid4()
+        source_b = uuid.uuid4()
+        upsert_source_chunks(chroma_client, topic_id, source_a, ["transformer architecture"])
+        upsert_source_chunks(chroma_client, topic_id, source_b, ["recurrent neural network"])
+
+        results = query_topic_chunks_with_sources(chroma_client, topic_id, "neural network", n_results=2)
+
+        returned_ids = {src_id for _, src_id in results}
+        assert returned_ids <= {source_a, source_b}
+
+    def test_returns_empty_list_for_missing_collection(self, chroma_client: chromadb.ClientAPI) -> None:
+        from documentlm_core.services.chroma import query_topic_chunks_with_sources
+
+        results = query_topic_chunks_with_sources(chroma_client, uuid.uuid4(), "anything")
+        assert results == []
+
+    def test_returns_empty_list_for_empty_collection(self, chroma_client: chromadb.ClientAPI) -> None:
+        from documentlm_core.services.chroma import query_topic_chunks_with_sources
+
+        topic_id = uuid.uuid4()
+        get_or_create_collection(chroma_client, topic_id)
+        results = query_topic_chunks_with_sources(chroma_client, topic_id, "anything")
+        assert results == []
+
+
 class TestDeleteSourceChunks:
     def test_removes_all_chunks_for_source(self, chroma_client: chromadb.ClientAPI) -> None:
         topic_id = uuid.uuid4()

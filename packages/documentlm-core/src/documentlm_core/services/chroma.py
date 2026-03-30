@@ -51,6 +51,41 @@ def upsert_source_chunks(
     collection.upsert(ids=ids, documents=chunks, metadatas=metadatas)
 
 
+def query_topic_chunks_with_sources(
+    client: chromadb.ClientAPI,
+    topic_id: uuid.UUID,
+    query_text: str,
+    n_results: int = 10,
+) -> list[tuple[str, uuid.UUID]]:
+    """Return (chunk_text, source_id) pairs most similar to query_text.
+
+    Returns an empty list if the collection does not exist or has no documents.
+    """
+    try:
+        collection = client.get_collection(name=_collection_name(topic_id))
+    except Exception:
+        return []
+
+    count = collection.count()
+    if count == 0:
+        return []
+
+    actual_n = min(n_results, count)
+    results = collection.query(
+        query_texts=[query_text],
+        n_results=actual_n,
+        include=["documents", "metadatas"],
+    )
+    docs: list[str] = (results.get("documents") or [[]])[0]
+    metas: list[dict] = (results.get("metadatas") or [[]])[0]
+    pairs = []
+    for doc, meta in zip(docs, metas):
+        raw_id = meta.get("source_id")
+        if raw_id:
+            pairs.append((doc, uuid.UUID(str(raw_id))))
+    return pairs
+
+
 def query_topic_chunks(
     client: chromadb.ClientAPI,
     topic_id: uuid.UUID,

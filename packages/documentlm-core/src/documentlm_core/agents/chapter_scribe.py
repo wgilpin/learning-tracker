@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import logging
+import re
 import uuid
+from dataclasses import dataclass, field
 
 from google.adk.agents import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types as genai_types
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from documentlm_core.config import settings
-from documentlm_core.services.chroma import get_chroma_client, query_topic_chunks
+from documentlm_core.services.chroma import get_chroma_client, query_topic_chunks_with_sources
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +35,22 @@ The chapter should:
 If prior chapter summaries are provided, briefly acknowledge how this topic builds on them.
 
 Write only the chapter content — no preamble, no "here is your chapter" introductions.
+
+You will be given a numbered "Available sources" list. When making a factual claim
+supported by a source, insert an inline citation marker immediately after the relevant
+sentence, in the style [1].
+
+Rules:
+- Only cite sources from the "Available sources" list provided.
+- You may cite the same source multiple times.
+- Not every sentence needs a citation — only claims directly supported by a listed source.
+- Every sentence or paragraph that can be supported by a ctiation must have a citation marker.
+- Material should not come from your training data — only from the provided sources.
+- Therefore every paragraph should have a citation marker, since all material must be sourced.
+- At the very end, after your summary, add a "## References" section listing ONLY the
+  sources you actually cited, preserving their original numbers. Format each line exactly as:
+  [n] Full citation text as provided in the reference list.
+- Do not invent sources or cite sources not in the list.
 """
 
 _COMMENT_INSTRUCTION = """You are an academic tutor responding to a student's question
@@ -45,6 +64,23 @@ Provide a clear, helpful response that:
 
 Respond only with the answer — no preamble.
 """
+
+
+@dataclass
+class ChapterDraft:
+    content: str
+    cited_source_ids: list[uuid.UUID] = field(default_factory=list)
+
+
+def _format_source_for_prompt(n: int, source) -> str:  # source: Source ORM object
+    authors = ", ".join(source.authors) if source.authors else "Unknown"
+    year = source.publication_date.year if source.publication_date else "n.d."
+    doi_or_url = f"DOI:{source.doi}" if source.doi else (source.url or "")
+    return f"[{n}] {authors} ({year}). {source.title}. {doi_or_url}".strip(". ")
+
+
+def _extract_cited_indices(content: str) -> set[int]:
+    return {int(m) for m in re.findall(r"\[(\d+)\]", content)}
 
 
 async def _run_agent(instruction: str, prompt: str) -> str:
@@ -84,35 +120,100 @@ async def run_chapter_scribe(
     topic_id: uuid.UUID,
     session: AsyncSession,
     item_description: str | None = None,
-) -> str:
+) -> ChapterDraft:
     logger.info("Chapter Scribe starting for item_id=%s title=%r", item_id, item_title)
+    from documentlm_core.db.models import Source
+    from documentlm_core.schemas import SourceStatus
     from documentlm_core.services.chapter import get_context_summaries
 
-    # Retrieve relevant source chunks from ChromaDB
+    # Retrieve relevant source chunks from ChromaDB (with source IDs)
     query_text = f"{item_title} {item_description or ''}".strip()
     logger.info("Chapter Scribe querying ChromaDB for chunks related to %r", item_title)
     chroma_client = get_chroma_client()
-    source_chunks = query_topic_chunks(chroma_client, topic_id, query_text, n_results=10)
-    logger.info("Chapter Scribe retrieved %d source chunk(s) from ChromaDB", len(source_chunks))
+    chunk_pairs = query_topic_chunks_with_sources(chroma_client, topic_id, query_text, n_results=10)
+    logger.info("Chapter Scribe retrieved %d source chunk(s) from ChromaDB", len(chunk_pairs))
+
+    # Deduplicate source IDs preserving similarity order
+    chunk_source_ids = list(dict.fromkeys(src_id for _, src_id in chunk_pairs))
+    logger.info("Chapter Scribe chunk source IDs from ChromaDB: %s", chunk_source_ids)
+
+    if not chunk_source_ids:
+        raise RuntimeError(
+            f"Chapter Scribe: ChromaDB returned no chunks for item_id={item_id} "
+            f"title={item_title!r}. Ensure sources are indexed before generating chapters."
+        )
+
+    # Fetch only VERIFIED sources that appear in the retrieved chunks
+    result = await session.execute(
+        select(Source).where(
+            Source.id.in_(chunk_source_ids),
+            Source.verification_status == SourceStatus.VERIFIED.value,
+        )
+    )
+    # Preserve similarity order from Chroma
+    by_id = {s.id: s for s in result.scalars().all()}
+    verified_sources = [by_id[sid] for sid in chunk_source_ids if sid in by_id]
+    logger.info("Chapter Scribe found %d verified source(s) for citation", len(verified_sources))
+
+    if not verified_sources:
+        raise RuntimeError(
+            f"Chapter Scribe: {len(chunk_source_ids)} ChromaDB chunk(s) found for "
+            f"item_id={item_id} but none matched verified DB sources "
+            f"(IDs: {chunk_source_ids}). "
+            "Sources may have been re-created after indexing — re-index to fix."
+        )
+
+    # source_map: citation number (1-based) → source UUID
+    source_map: dict[int, uuid.UUID] = {n: s.id for n, s in enumerate(verified_sources, 1)}
 
     logger.info("Chapter Scribe fetching prior chapter summaries for context")
     context_summaries = await get_context_summaries(session, topic_id, item_id)
     logger.info("Chapter Scribe found %d prior chapter summary(ies)", len(context_summaries))
 
     prompt_parts = [f"Topic: {item_title}"]
-    if source_chunks:
+
+    if verified_sources:
+        # Group chunks by source
+        chunks_by_source: dict[uuid.UUID, list[str]] = {}
+        for chunk_text, src_id in chunk_pairs:
+            if src_id in {s.id for s in verified_sources}:
+                chunks_by_source.setdefault(src_id, []).append(chunk_text)
+
+        source_material_parts = []
+        for n, source in enumerate(verified_sources, 1):
+            excerpt = "\n".join(chunks_by_source.get(source.id, [])[:3])
+            source_material_parts.append(f"[{n}] {source.title}\n{excerpt}")
         prompt_parts.append(
-            "Relevant source material:\n\n" + "\n\n---\n\n".join(source_chunks)
+            "Available sources (cite by number in your prose):\n\n"
+            + "\n\n---\n\n".join(source_material_parts)
         )
+
+        refs_block = "\n".join(
+            _format_source_for_prompt(n, s) for n, s in enumerate(verified_sources, 1)
+        )
+        prompt_parts.append(f"Reference list for your ## References section:\n{refs_block}")
+
     if context_summaries:
         summaries_text = "\n".join(f"- {s}" for s in context_summaries)
         prompt_parts.append(f"Prior chapters in this topic (for context):\n{summaries_text}")
     prompt_parts.append("Write the chapter now.")
 
-    logger.info("Chapter Scribe calling LLM to draft chapter %r (model=%s)", item_title, settings.gemini_model)
+    logger.info(
+        "Chapter Scribe calling LLM to draft chapter %r (model=%s, sources=%d)",
+        item_title,
+        settings.gemini_model,
+        len(verified_sources),
+    )
     content = await _run_agent(_CHAPTER_INSTRUCTION, "\n\n".join(prompt_parts))
     logger.info("Chapter Scribe complete for item_id=%s chars=%d", item_id, len(content))
-    return content
+
+    cited_indices = _extract_cited_indices(content)
+    cited_source_ids = [source_map[n] for n in sorted(cited_indices) if n in source_map]
+    logger.info("ç extracted %d citation(s) from content", len(cited_source_ids))
+    if len(cited_source_ids) == 0:
+        logger.info("Chapter Scribe Content Returned: %s", content)
+
+    return ChapterDraft(content=content, cited_source_ids=cited_source_ids)
 
 
 async def respond_to_comment(
