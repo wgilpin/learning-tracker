@@ -23,7 +23,15 @@
     </nav>
 
     <section class="reading-panel" id="reading-panel">
+      {% if lesson_id %}
+      <div hx-get="/syllabus-items/{{ lesson_id }}/chapter"
+           hx-target="#reading-panel"
+           hx-swap="innerHTML"
+           hx-trigger="load">
+      </div>
+      {% else %}
       <p class="reading-empty">Select a topic from the syllabus to start reading.</p>
+      {% endif %}
     </section>
   </div>
 

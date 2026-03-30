@@ -10,7 +10,8 @@
   <button class="syllabus-child-btn"
           hx-get="/syllabus-items/{{ child.id }}/chapter"
           hx-target="#reading-panel"
-          hx-swap="innerHTML">
+          hx-swap="innerHTML"
+          hx-push-url="/topics/{{ child.topic_id }}?lesson={{ child.id }}">
     {{ child.title }}
     {% if child.description %}<span class="syllabus-child-desc">{{ child.description }}</span>{% endif %}
   </button>

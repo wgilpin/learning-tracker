@@ -69,13 +69,14 @@ async def new_topic_form(request: Request) -> Response:
 async def get_topic_detail(
     request: Request,
     topic_id: uuid.UUID,
+    lesson: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     topic = await get_topic(session, topic_id)
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
 
-    return templates.TemplateResponse(request, "topics/detail.html", {"topic": topic})
+    return templates.TemplateResponse(request, "topics/detail.html", {"topic": topic, "lesson_id": lesson})
 
 
 @router.get("/topics/{topic_id}/status")
