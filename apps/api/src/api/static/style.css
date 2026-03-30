@@ -1659,8 +1659,7 @@ details[open] .source-add-summary {
 .topic-detail-columns { display: grid; grid-template-columns: 260px 1fr; gap: 0; margin: 1.5rem 0; min-height: calc(100vh - 160px); }
 .topic-detail-header { margin-bottom: 1.5rem; }
 .topic-description { color: #6b7280; margin-top: 0.5rem; }
-.topic-search-panel { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb; }
-.topic-search-heading { font-size: 1rem; font-weight: 700; color: #374151; margin-bottom: 0.75rem; }
+
 
 /* Syllabus nav (left panel) */
 .syllabus-nav { border-right: 1px solid #e5e7eb; padding-right: 1rem; overflow-y: auto; }
