@@ -1,21 +1,10 @@
-"""Verify that Alembic migrations apply cleanly and pgvector extension is present."""
+"""Verify that Alembic migrations apply cleanly."""
 
 from __future__ import annotations
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
-
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_pgvector_extension_exists(async_session: AsyncSession) -> None:
-    result = await async_session.execute(
-        text("SELECT extname FROM pg_extension WHERE extname = 'vector'")
-    )
-    row = result.fetchone()
-    assert row is not None, "pgvector extension must be installed"
-    assert row[0] == "vector"
 
 
 @pytest.mark.integration

@@ -10,14 +10,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from documentlm_core.db.models import AtomicChapter, ChapterSource, SyllabusItem
-from documentlm_core.schemas import ChapterRead, SourceRead, SourceStatus
+from documentlm_core.schemas import ChapterRead, SourceRead
 
 logger = logging.getLogger(__name__)
-
-
-def _filter_verified_sources(sources: list[SourceRead]) -> list[SourceRead]:
-    """Return only VERIFIED sources — citations must come from verified sources."""
-    return [s for s in sources if s.verification_status == SourceStatus.VERIFIED]
 
 
 async def create_chapter(
@@ -54,18 +49,9 @@ async def create_chapter(
     session.add(chapter)
     await session.flush()
 
-    # Link only VERIFIED sources — defensive guard against unverified IDs slipping through
     if source_ids:
-        from documentlm_core.db.models import Source as SourceModel
-
-        src_result = await session.execute(
-            select(SourceModel).where(SourceModel.id.in_(source_ids))
-        )
-        source_reads = [SourceRead.model_validate(s) for s in src_result.scalars().all()]
-        verified_id_set = {sr.id for sr in _filter_verified_sources(source_reads)}
         for source_id in source_ids:
-            if source_id in verified_id_set:
-                session.add(ChapterSource(chapter_id=chapter.id, source_id=source_id))
+            session.add(ChapterSource(chapter_id=chapter.id, source_id=source_id))
     await session.flush()
 
     logger.info("Created chapter id=%s item_id=%s", chapter.id, item_id)

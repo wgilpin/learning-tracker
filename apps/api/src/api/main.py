@@ -6,11 +6,13 @@ import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+from documentlm_core.config import settings
 from documentlm_core.db.session import AsyncSessionFactory, engine
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
+from starlette.middleware.sessions import SessionMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -101,13 +103,36 @@ def create_app() -> FastAPI:
             )
             return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
+    # Auth guard: redirect unauthenticated requests to /login
+    _PUBLIC_PATHS = {"/login", "/register", "/logout"}
+
+    @app.middleware("http")
+    async def require_auth(request: Request, call_next):  # type: ignore[no-untyped-def]
+        path = request.url.path
+        if path not in _PUBLIC_PATHS and not path.startswith("/static"):
+            if not request.session.get("user_id"):
+                from starlette.responses import RedirectResponse
+                return RedirectResponse(url="/login", status_code=302)
+        return await call_next(request)
+
+    # SessionMiddleware must be added LAST so it is outermost and runs before
+    # any middleware that accesses request.session.
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.session_secret_key,
+        max_age=604800,
+        https_only=not settings.debug,
+        same_site="lax",
+    )
+
     # Static files
     static_dir = os.path.join(os.path.dirname(__file__), "static")
     if os.path.isdir(static_dir):
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-    from api.routers import bibliography, chapters, sources, syllabus, topics
+    from api.routers import auth, bibliography, chapters, sources, syllabus, topics
 
+    app.include_router(auth.router)
     app.include_router(topics.router)
     app.include_router(syllabus.router)
     app.include_router(chapters.router)

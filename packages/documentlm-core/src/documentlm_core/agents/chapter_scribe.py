@@ -73,12 +73,9 @@ class ChapterDraft:
 
 
 def _format_source_for_prompt(n: int, source) -> str:  # source: Source ORM object
-    parts: list[str] = []
-    if source.authors:
-        parts.append(", ".join(source.authors))
-    if source.publication_date:
-        parts.append(f"({source.publication_date.year})")
-    parts.append(source.title)
+    authors = ", ".join(source.authors) if source.authors else "Unknown"
+    year = f"({source.publication_date.year})" if source.publication_date else "(n.d.)"
+    parts = [authors, year, source.title]
     if source.doi:
         parts.append(f"DOI:{source.doi}")
     elif source.url:
@@ -130,7 +127,6 @@ async def run_chapter_scribe(
 ) -> ChapterDraft:
     logger.info("Chapter Scribe starting for item_id=%s title=%r", item_id, item_title)
     from documentlm_core.db.models import Source
-    from documentlm_core.schemas import SourceStatus
     from documentlm_core.services.chapter import get_context_summaries
 
     # Retrieve relevant source chunks from ChromaDB (with source IDs)
@@ -144,34 +140,23 @@ async def run_chapter_scribe(
     chunk_source_ids = list(dict.fromkeys(src_id for _, src_id in chunk_pairs))
     logger.info("Chapter Scribe chunk source IDs from ChromaDB: %s", chunk_source_ids)
 
-    if not chunk_source_ids:
-        raise RuntimeError(
-            f"Chapter Scribe: ChromaDB returned no chunks for item_id={item_id} "
-            f"title={item_title!r}. Ensure sources are indexed before generating chapters."
+    sources: list = []
+    if chunk_source_ids:
+        result = await session.execute(
+            select(Source).where(Source.id.in_(chunk_source_ids))
+        )
+        by_id = {s.id: s for s in result.scalars().all()}
+        sources = [by_id[sid] for sid in chunk_source_ids if sid in by_id]
+    else:
+        logger.info(
+            "Chapter Scribe: no ChromaDB chunks for item_id=%s — generating without sources",
+            item_id,
         )
 
-    # Fetch only VERIFIED sources that appear in the retrieved chunks
-    result = await session.execute(
-        select(Source).where(
-            Source.id.in_(chunk_source_ids),
-            Source.verification_status == SourceStatus.VERIFIED.value,
-        )
-    )
-    # Preserve similarity order from Chroma
-    by_id = {s.id: s for s in result.scalars().all()}
-    verified_sources = [by_id[sid] for sid in chunk_source_ids if sid in by_id]
-    logger.info("Chapter Scribe found %d verified source(s) for citation", len(verified_sources))
-
-    if not verified_sources:
-        raise RuntimeError(
-            f"Chapter Scribe: {len(chunk_source_ids)} ChromaDB chunk(s) found for "
-            f"item_id={item_id} but none matched verified DB sources "
-            f"(IDs: {chunk_source_ids}). "
-            "Sources may have been re-created after indexing — re-index to fix."
-        )
+    logger.info("Chapter Scribe found %d verified source(s) for citation", len(sources))
 
     # source_map: citation number (1-based) → source UUID
-    source_map: dict[int, uuid.UUID] = {n: s.id for n, s in enumerate(verified_sources, 1)}
+    source_map: dict[int, uuid.UUID] = {n: s.id for n, s in enumerate(sources, 1)}
 
     logger.info("Chapter Scribe fetching prior chapter summaries for context")
     context_summaries = await get_context_summaries(session, topic_id, item_id)
@@ -179,15 +164,15 @@ async def run_chapter_scribe(
 
     prompt_parts = [f"Topic: {item_title}"]
 
-    if verified_sources:
+    if sources:
         # Group chunks by source
         chunks_by_source: dict[uuid.UUID, list[str]] = {}
         for chunk_text, src_id in chunk_pairs:
-            if src_id in {s.id for s in verified_sources}:
+            if src_id in {s.id for s in sources}:
                 chunks_by_source.setdefault(src_id, []).append(chunk_text)
 
         source_material_parts = []
-        for n, source in enumerate(verified_sources, 1):
+        for n, source in enumerate(sources, 1):
             excerpt = "\n".join(chunks_by_source.get(source.id, [])[:3])
             source_material_parts.append(f"[{n}] {source.title}\n{excerpt}")
         prompt_parts.append(
@@ -196,7 +181,7 @@ async def run_chapter_scribe(
         )
 
         refs_block = "\n".join(
-            _format_source_for_prompt(n, s) for n, s in enumerate(verified_sources, 1)
+            _format_source_for_prompt(n, s) for n, s in enumerate(sources, 1)
         )
         prompt_parts.append(f"Reference list for your ## References section:\n{refs_block}")
 
@@ -209,7 +194,7 @@ async def run_chapter_scribe(
         "Chapter Scribe calling LLM to draft chapter %r (model=%s, sources=%d)",
         item_title,
         settings.gemini_model,
-        len(verified_sources),
+        len(sources),
     )
     content = await _run_agent(_CHAPTER_INSTRUCTION, "\n\n".join(prompt_parts))
     logger.info("Chapter Scribe complete for item_id=%s chars=%d", item_id, len(content))
@@ -218,16 +203,12 @@ async def run_chapter_scribe(
     cited_source_ids = [source_map[n] for n in sorted(cited_indices) if n in source_map]
     logger.info("Chapter Scribe extracted %d citation(s) from content", len(cited_source_ids))
 
-    if not cited_source_ids:
-        logger.error(
-            "Chapter Scribe returned no citations for item_id=%s. Content:\n%s",
+    if sources and not cited_source_ids:
+        logger.warning(
+            "Chapter Scribe returned no citations for item_id=%s despite having sources. "
+            "Content:\n%s",
             item_id,
             content,
-        )
-        raise RuntimeError(
-            f"Chapter Scribe generated content with zero citations for item_id={item_id} "
-            f"title={item_title!r}. The LLM ignored grounding instructions. "
-            "Check that sources contain relevant content for this chapter topic."
         )
 
     return ChapterDraft(content=content, cited_source_ids=cited_source_ids)

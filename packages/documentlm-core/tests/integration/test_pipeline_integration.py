@@ -142,16 +142,29 @@ class TestChapterScribeRetrieval:
     async def test_scribe_receives_source_chunks_when_indexed(
         self, async_session: AsyncSession
     ) -> None:
-        """Chapter scribe prompt contains 'Relevant source material:' when chunks exist."""
-        topic_id = uuid.uuid4()
-        ephemeral = chromadb.EphemeralClient()
-        source_id = uuid.uuid4()
+        """Chapter scribe prompt contains source material when chunks exist."""
+        from documentlm_core.db.models import Source, Topic
 
-        # Pre-populate ChromaDB with known content
+        topic = Topic(title="ML Topic")
+        async_session.add(topic)
+        await async_session.flush()
+
+        source = Source(
+            topic_id=topic.id,
+            title="Backpropagation Paper",
+            authors=["LeCun"],
+            source_type="SEARCH",
+        )
+        async_session.add(source)
+        await async_session.flush()
+
+        ephemeral = chromadb.EphemeralClient()
+
+        # Pre-populate ChromaDB with known content linked to this source
         upsert_source_chunks(
             ephemeral,
-            topic_id,
-            source_id,
+            topic.id,
+            source.id,
             ["Neural networks learn from data through backpropagation."],
         )
 
@@ -181,12 +194,12 @@ class TestChapterScribeRetrieval:
                 item_id=uuid.uuid4(),
                 item_title="Neural Networks",
                 item_description="Introduction to neural network training",
-                topic_id=topic_id,
+                topic_id=topic.id,
                 session=async_session,
             )
 
         assert len(captured_prompts) == 1
-        assert "Relevant source material:" in captured_prompts[0]
+        assert "Available sources" in captured_prompts[0]
         assert "backpropagation" in captured_prompts[0]
 
     @pytest.mark.asyncio
@@ -227,8 +240,8 @@ class TestChapterScribeRetrieval:
                 session=async_session,
             )
 
-        assert result == "Generated chapter content."
-        assert "Relevant source material:" not in captured_prompts[0]
+        assert result.content == "Generated chapter content."
+        assert "Available sources" not in captured_prompts[0]
 
     @pytest.mark.asyncio
     async def test_scribe_context_bounded_to_ten_chunks(

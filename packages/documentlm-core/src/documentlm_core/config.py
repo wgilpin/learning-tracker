@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3-flash-preview"
     chroma_path: str = Field(default="./chroma_data", alias="CHROMA_PATH")
     debug: bool = Field(default=False, alias="DEBUG")
+    session_secret_key: str = Field(
+        default="dev-insecure-change-in-production",
+        alias="SESSION_SECRET_KEY",
+    )
 
     model_config = {
         "env_file": ".env",

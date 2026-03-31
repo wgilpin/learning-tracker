@@ -1,16 +1,21 @@
 {% if items %}
 <ul class="syllabus-tree">
   {% for item in items %}
-  <li class="syllabus-section" id="item-{{ item.id }}">
-    <button class="syllabus-section-btn"
-            hx-get="/syllabus-items/{{ item.id }}/children"
+  <li class="syllabus-section{% if item.id in ancestor_ids %} is-open{% endif %}" id="item-{{ item.id }}">
+    <button class="syllabus-section-btn{% if item.id in ancestor_ids %} is-open{% endif %}"
+            hx-get="/syllabus-items/{{ item.id }}/children{% if lesson_id %}?lesson={{ lesson_id }}{% endif %}"
             hx-target="#children-{{ item.id }}"
             hx-swap="innerHTML"
             hx-on::before-request="const c=document.getElementById('children-{{ item.id }}');if(c.innerHTML.trim()){c.innerHTML='';event.preventDefault();}">
       <span class="syllabus-chevron">▶</span>
       <span class="syllabus-section-title">{{ item.title }}</span>
     </button>
-    <ul class="syllabus-children" id="children-{{ item.id }}"></ul>
+    <ul class="syllabus-children" id="children-{{ item.id }}"
+        {% if item.id in ancestor_ids %}
+        hx-get="/syllabus-items/{{ item.id }}/children?lesson={{ lesson_id }}"
+        hx-trigger="load"
+        hx-swap="innerHTML"
+        {% endif %}></ul>
   </li>
   {% endfor %}
 </ul>

@@ -55,7 +55,6 @@ async def create_source(session: AsyncSession, data: SourceCreate) -> SourceRead
         title=data.title,
         authors=data.authors,
         publication_date=data.publication_date,
-        verification_status=SourceStatus.VERIFIED.value,
     )
     session.add(source)
     try:

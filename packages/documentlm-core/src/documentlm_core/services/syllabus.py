@@ -63,6 +63,22 @@ async def list_children(session: AsyncSession, parent_id: uuid.UUID) -> list[Syl
     return [_item_to_read(item) for item in result.scalars().all()]
 
 
+async def get_ancestor_ids(session: AsyncSession, item_id: uuid.UUID) -> list[uuid.UUID]:
+    """Return IDs of ancestors from root down to item's parent (not including item itself)."""
+    ancestors: list[uuid.UUID] = []
+    current_id = item_id
+    while True:
+        row = (await session.execute(
+            select(SyllabusItem.parent_id).where(SyllabusItem.id == current_id)
+        )).one_or_none()
+        if row is None or row[0] is None:
+            break
+        ancestors.append(row[0])
+        current_id = row[0]
+    ancestors.reverse()
+    return ancestors
+
+
 async def update_status(
     session: AsyncSession, item_id: uuid.UUID, update: SyllabusItemStatusUpdate
 ) -> SyllabusItemRead:

@@ -13,7 +13,7 @@
     <nav class="syllabus-nav" id="syllabus-panel">
       <p class="syllabus-nav-label">Syllabus</p>
       <div id="syllabus-items-list"
-           hx-get="/topics/{{ topic.id }}/syllabus"
+           hx-get="/topics/{{ topic.id }}/syllabus{% if lesson_id %}?lesson={{ lesson_id }}{% endif %}"
            hx-trigger="load">
         <div class="syllabus-generating">
           <span class="spinner"></span>

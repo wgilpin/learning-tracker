@@ -10,8 +10,10 @@ dependencies = [
     "python-multipart>=0.0.12",
     "markdown-it-py>=3.0",
     "mdit-py-plugins>=0.4",
+    "bcrypt>=4.1",
     "documentlm-core",
     "nlp-utils",
+    "itsdangerous>=2.2.0",
 ]
 
 [tool.uv.sources]
@@ -24,6 +26,9 @@ dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
 ]
+
+[project.scripts]
+manage = "api.cli:main"
 
 [build-system]
 requires = ["hatchling"]

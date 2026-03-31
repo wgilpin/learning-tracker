@@ -57,13 +57,16 @@ async def test_get_topic_detail(test_client: AsyncClient) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_get_syllabus_returns_partial(test_client: AsyncClient) -> None:
-    post = await test_client.post("/topics", data={"title": "Calculus"}, follow_redirects=False)
-    location = post.headers["location"]
-    topic_id = location.split("/topics/")[1].rstrip("/")
+async def test_get_syllabus_returns_partial(
+    test_client: AsyncClient, async_session
+) -> None:
+    from documentlm_core.schemas import TopicCreate
+    from documentlm_core.services.topic import create_topic
+
+    topic = await create_topic(async_session, TopicCreate(title="Calculus"))
 
     response = await test_client.get(
-        f"/topics/{topic_id}/syllabus",
+        f"/topics/{topic.id}/syllabus",
         headers={"HX-Request": "true"},
     )
     assert response.status_code == 200
@@ -71,12 +74,13 @@ async def test_get_syllabus_returns_partial(test_client: AsyncClient) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_topic_status_endpoint(test_client: AsyncClient) -> None:
-    post = await test_client.post("/topics", data={"title": "Status Test"}, follow_redirects=False)
-    location = post.headers["location"]
-    topic_id = location.split("/topics/")[1].rstrip("/")
+async def test_topic_status_endpoint(test_client: AsyncClient, async_session) -> None:
+    from documentlm_core.schemas import TopicCreate
+    from documentlm_core.services.topic import create_topic
 
-    response = await test_client.get(f"/topics/{topic_id}/status")
+    topic = await create_topic(async_session, TopicCreate(title="Status Test"))
+
+    response = await test_client.get(f"/topics/{topic.id}/status")
     assert response.status_code == 200
     data = response.json()
     assert "status" in data

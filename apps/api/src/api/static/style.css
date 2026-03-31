@@ -1702,7 +1702,8 @@ button.syllabus-section-btn {
 }
 button.syllabus-section-btn:hover { background: #f3f4f6; }
 
-.syllabus-chevron { font-size: 0.55rem; color: #9ca3af; flex-shrink: 0; }
+.syllabus-chevron { font-size: 0.55rem; color: #9ca3af; flex-shrink: 0; transition: transform 0.15s; }
+button.is-open > .syllabus-chevron { transform: rotate(90deg); }
 
 /* Children list — indented under section */
 ul.syllabus-children { padding-left: 1rem; margin: 0.125rem 0 0.375rem; }
@@ -1710,6 +1711,7 @@ ul.syllabus-children { padding-left: 1rem; margin: 0.125rem 0 0.375rem; }
 /* Child item row */
 li.syllabus-child { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.15rem 0; }
 li.syllabus-child.is-done button.syllabus-child-btn { color: #9ca3af; text-decoration: line-through; }
+li.syllabus-child.is-active > button.syllabus-child-btn { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
 
 /* Checkbox */
 li.syllabus-child input[type="checkbox"] {

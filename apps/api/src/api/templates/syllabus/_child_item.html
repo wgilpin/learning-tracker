@@ -1,4 +1,4 @@
-<li class="syllabus-child{% if child.status == 'MASTERED' %} is-done{% endif %}" id="child-{{ child.id }}">
+<li class="syllabus-child{% if child.status == 'MASTERED' %} is-done{% endif %}{% if child.id == lesson_id %} is-active{% endif %}" id="child-{{ child.id }}">
   <input type="checkbox"
          {% if child.status == 'MASTERED' %}checked{% endif %}
          hx-patch="/syllabus-items/{{ child.id }}/status"
@@ -16,14 +16,19 @@
     {% if child.description %}<span class="syllabus-child-desc">{{ child.description }}</span>{% endif %}
   </button>
   {% else %}
-  <button class="syllabus-child-btn"
-          hx-get="/syllabus-items/{{ child.id }}/children"
+  <button class="syllabus-child-btn{% if child.id in ancestor_ids %} is-open{% endif %}"
+          hx-get="/syllabus-items/{{ child.id }}/children{% if lesson_id %}?lesson={{ lesson_id }}{% endif %}"
           hx-target="#children-{{ child.id }}"
           hx-swap="innerHTML">
     <span class="syllabus-chevron">▶</span>
     {{ child.title }}
     {% if child.description %}<span class="syllabus-child-desc">{{ child.description }}</span>{% endif %}
   </button>
-  <ul class="syllabus-children" id="children-{{ child.id }}"></ul>
+  <ul class="syllabus-children" id="children-{{ child.id }}"
+      {% if child.id in ancestor_ids %}
+      hx-get="/syllabus-items/{{ child.id }}/children?lesson={{ lesson_id }}"
+      hx-trigger="load"
+      hx-swap="innerHTML"
+      {% endif %}></ul>
   {% endif %}
 </li>

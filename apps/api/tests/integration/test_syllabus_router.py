@@ -29,7 +29,9 @@ async def test_patch_status_updates_item(
         headers={"HX-Request": "true"},
     )
     assert response.status_code == 200
-    assert "IN_PROGRESS" in response.text or "in-progress" in response.text.lower()
+    # Template renders the item; IN_PROGRESS shows without the is-done class
+    assert str(item.id) in response.text
+    assert "is-done" not in response.text
 
 
 @pytest.mark.integration

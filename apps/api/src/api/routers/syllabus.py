@@ -9,7 +9,7 @@ from api.templates_config import templates
 from documentlm_core.db.models import AtomicChapter
 from documentlm_core.db.session import get_session
 from documentlm_core.schemas import SyllabusItemStatusUpdate, SyllabusStatus
-from documentlm_core.services.syllabus import list_children, list_top_level_items, update_status
+from documentlm_core.services.syllabus import get_ancestor_ids, list_children, list_top_level_items, update_status
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
@@ -25,11 +25,15 @@ router = APIRouter()
 async def get_syllabus(
     request: Request,
     topic_id: uuid.UUID,
+    lesson: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     items = await list_top_level_items(session, topic_id)
+    ancestor_ids: set[uuid.UUID] = set(await get_ancestor_ids(session, lesson)) if lesson else set()
     return templates.TemplateResponse(
-        request, "topics/_syllabus_panel.html", {"items": items, "topic_id": topic_id}
+        request,
+        "topics/_syllabus_panel.html",
+        {"items": items, "topic_id": topic_id, "lesson_id": lesson, "ancestor_ids": ancestor_ids},
     )
 
 
@@ -37,6 +41,7 @@ async def get_syllabus(
 async def get_children(
     request: Request,
     item_id: uuid.UUID,
+    lesson: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     children = await list_children(session, item_id)
@@ -58,12 +63,19 @@ async def get_children(
         )
         items_with_chapters = {row[0] for row in result}
 
+    ancestor_ids: set[uuid.UUID] = set(await get_ancestor_ids(session, lesson)) if lesson else set()
     children_with_flags: list[tuple] = [
         (child, is_leaf_map[child.id], child.id in items_with_chapters)
         for child in children
     ]
     return templates.TemplateResponse(
-        request, "syllabus/_children_list.html", {"children_with_flags": children_with_flags}
+        request,
+        "syllabus/_children_list.html",
+        {
+            "children_with_flags": children_with_flags,
+            "lesson_id": lesson,
+            "ancestor_ids": ancestor_ids,
+        },
     )
 
 
