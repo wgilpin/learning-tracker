@@ -73,9 +73,12 @@ class ChapterDraft:
 
 
 def _format_source_for_prompt(n: int, source) -> str:  # source: Source ORM object
-    authors = ", ".join(source.authors) if source.authors else "Unknown"
-    year = f"({source.publication_date.year})" if source.publication_date else "(n.d.)"
-    parts = [authors, year, source.title]
+    parts: list[str] = []
+    if source.authors:
+        parts.append(", ".join(source.authors))
+    if source.publication_date:
+        parts.append(f"({source.publication_date.year})")
+    parts.append(source.title)
     if source.doi:
         parts.append(f"DOI:{source.doi}")
     elif source.url:

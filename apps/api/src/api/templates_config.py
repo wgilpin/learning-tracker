@@ -12,10 +12,9 @@ from mdit_py_plugins.dollarmath import dollarmath_plugin
 _md = MarkdownIt("commonmark").use(dollarmath_plugin, allow_labels=True, allow_space=True)
 
 _INLINE_CITATION_RE = re.compile(r"\[(\d+)\]")
-# Finds a "## References" heading anywhere in the text
-_REF_SECTION_SPLIT_RE = re.compile(r"^##\s*References\b", re.MULTILINE | re.IGNORECASE)
-# Adds id="ref-N" to <li> items whose content starts with [N]
-_REF_LI_RE = re.compile(r"<li>\s*\[(\d+)\]")
+# Matches "## References" heading optionally followed by ref lines in the same block
+_REF_SECTION_RE = re.compile(r"^##\s*References\s*\n?(.*)", re.DOTALL | re.IGNORECASE)
+_REF_LINE_RE = re.compile(r"^\[(\d+)\](.*)", re.MULTILINE)
 
 
 def _linkify_inline_citations(html: str) -> str:
@@ -24,15 +23,26 @@ def _linkify_inline_citations(html: str) -> str:
     )
 
 
+def _render_ref_lines(refs_text: str) -> str:
+    """Render [n] reference lines as separate anchored paragraphs."""
+    parts = []
+    for line in refs_text.strip().splitlines():
+        m = _REF_LINE_RE.match(line.strip())
+        if m:
+            n, rest = m.group(1), m.group(2).strip()
+            parts.append(
+                f'<p id="ref-{n}" class="reference-item">'
+                f'<span class="ref-num">[{n}]</span> {rest}</p>'
+            )
+    return "\n".join(parts)
+
+
 def _render_md(text: str) -> str:
-    text = text.strip()
-    m = _REF_SECTION_SPLIT_RE.search(text)
-    if m:
-        prose = text[: m.start()].strip()
-        refs_md = text[m.start() :]
-        prose_html = _linkify_inline_citations(_md.render(prose)) if prose else ""
-        refs_html = _REF_LI_RE.sub(r'<li id="ref-\1">[\1]', _md.render(refs_md))
-        return prose_html + refs_html
+    # If this paragraph contains the References heading, split prose from refs
+    ref_match = _REF_SECTION_RE.match(text.strip())
+    if ref_match:
+        refs_html = _render_ref_lines(ref_match.group(1))
+        return '<h2 class="references-heading">References</h2>\n' + refs_html
     html = _md.render(text)
     return _linkify_inline_citations(html)
 
