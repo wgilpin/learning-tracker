@@ -6,6 +6,7 @@ import logging
 import uuid
 
 from documentlm_core.db.session import get_session
+from documentlm_core.dependencies import get_current_user_id
 from documentlm_core.schemas import TopicCreate
 from documentlm_core.services.source import list_sources
 from documentlm_core.services.syllabus import list_syllabus_items
@@ -23,10 +24,14 @@ router = APIRouter()
 
 
 @router.get("/", response_class=HTMLResponse)
-async def index(request: Request, session: AsyncSession = Depends(get_session)) -> Response:
+async def index(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+) -> Response:
     from documentlm_core.config import settings
 
-    topics = await list_topics(session)
+    topics = await list_topics(session, user_id=user_id)
     return templates.TemplateResponse(
         request, "topics/list.html", {"topics": topics, "debug": settings.debug}
     )
@@ -38,11 +43,14 @@ async def post_topic(
     title: str = Form(...),
     description: str | None = Form(default=None),
     session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Response:
     if not title or not title.strip():
         raise HTTPException(status_code=422, detail="title is required")
 
-    topic = await create_topic(session, TopicCreate(title=title.strip(), description=description))
+    topic = await create_topic(
+        session, TopicCreate(title=title.strip(), description=description), user_id=user_id
+    )
     await session.commit()
 
     logger.info("Created topic topic_id=%s — redirecting to source intake", topic.id)
@@ -53,8 +61,11 @@ async def post_topic(
 async def delete_topic_endpoint(
     topic_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Response:
-    await delete_topic(session, topic_id)
+    deleted = await delete_topic(session, topic_id, user_id=user_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Topic not found")
     await session.commit()
     logger.info("Deleted topic topic_id=%s", topic_id)
     return Response(status_code=200, headers={"HX-Trigger": "topicDeleted"})
@@ -71,8 +82,9 @@ async def get_topic_detail(
     topic_id: uuid.UUID,
     lesson: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Response:
-    topic = await get_topic(session, topic_id)
+    topic = await get_topic(session, topic_id, user_id=user_id)
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
 
@@ -81,9 +93,11 @@ async def get_topic_detail(
 
 @router.get("/topics/{topic_id}/status")
 async def topic_status(
-    topic_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+    topic_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> JSONResponse:
-    topic = await get_topic(session, topic_id)
+    topic = await get_topic(session, topic_id, user_id=user_id)
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
 
@@ -97,9 +111,10 @@ async def post_generate(
     background_tasks: BackgroundTasks,
     topic_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Response:
     """Kick off syllabus generation using primary sources as context."""
-    topic = await get_topic(session, topic_id)
+    topic = await get_topic(session, topic_id, user_id=user_id)
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
 

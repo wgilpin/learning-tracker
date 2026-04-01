@@ -8,8 +8,10 @@ import uuid
 from api.templates_config import templates
 from documentlm_core.db.models import AtomicChapter
 from documentlm_core.db.session import get_session
+from documentlm_core.dependencies import get_current_user_id
 from documentlm_core.schemas import SyllabusItemStatusUpdate, SyllabusStatus
 from documentlm_core.services.syllabus import get_ancestor_ids, list_children, list_top_level_items, update_status
+from documentlm_core.services.topic import get_topic
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
@@ -27,7 +29,11 @@ async def get_syllabus(
     topic_id: uuid.UUID,
     lesson: uuid.UUID | None = None,
     session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Response:
+    topic = await get_topic(session, topic_id, user_id=user_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
     items = await list_top_level_items(session, topic_id)
     ancestor_ids: set[uuid.UUID] = set(await get_ancestor_ids(session, lesson)) if lesson else set()
     return templates.TemplateResponse(

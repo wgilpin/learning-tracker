@@ -59,7 +59,7 @@ async def extract_and_index_source(
             raise ValueError("Extraction produced no text chunks")
 
         chroma_client = get_chroma_client()
-        upsert_source_chunks(chroma_client, source.topic_id, source_id, chunks)
+        upsert_source_chunks(chroma_client, source_id, chunks)
 
         source.content = text
         source.index_status = IndexStatus.INDEXED

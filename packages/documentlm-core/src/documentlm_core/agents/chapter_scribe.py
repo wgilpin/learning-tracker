@@ -132,8 +132,17 @@ async def run_chapter_scribe(
     # Retrieve relevant source chunks from ChromaDB (with source IDs)
     query_text = f"{item_title} {item_description or ''}".strip()
     logger.info("Chapter Scribe querying ChromaDB for chunks related to %r", item_title)
+
+    from documentlm_core.db.models import UserSourceRef
+    refs_result = await session.execute(
+        select(UserSourceRef).where(UserSourceRef.topic_id == topic_id)
+    )
+    topic_source_ids = [ref.source_id for ref in refs_result.scalars().all()]
+
     chroma_client = get_chroma_client()
-    chunk_pairs = query_topic_chunks_with_sources(chroma_client, topic_id, query_text, n_results=10)
+    chunk_pairs = query_topic_chunks_with_sources(
+        chroma_client, topic_source_ids, query_text, n_results=10
+    )
     logger.info("Chapter Scribe retrieved %d source chunk(s) from ChromaDB", len(chunk_pairs))
 
     # Deduplicate source IDs preserving similarity order

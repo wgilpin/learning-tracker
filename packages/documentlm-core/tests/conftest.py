@@ -10,7 +10,7 @@ from sqlalchemy.pool import NullPool
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    "postgresql+asyncpg://tracker:tracker@localhost:5432/tracker_test",
+    "postgresql+asyncpg://tracker:tracker@localhost:5432/tracker",
 )
 
 
@@ -20,8 +20,6 @@ async def test_engine():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
@@ -43,3 +41,21 @@ async def db_rollback(test_engine) -> AsyncGenerator[AsyncSession, None]:
         await session.begin()
         yield session
         await session.rollback()
+
+
+@pytest_asyncio.fixture
+async def test_user(async_session: AsyncSession):
+    """A pre-created active user for tests that need a topic owner."""
+    import uuid
+
+    import bcrypt
+    from documentlm_core.db.models import User
+
+    user = User(
+        id=uuid.uuid4(),
+        email="testuser@example.com",
+        password_hash=bcrypt.hashpw(b"testpassword", bcrypt.gensalt(rounds=4)).decode(),
+    )
+    async_session.add(user)
+    await async_session.flush()
+    return user

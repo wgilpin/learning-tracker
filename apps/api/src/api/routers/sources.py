@@ -6,11 +6,12 @@ import logging
 import uuid
 
 from documentlm_core.db.session import get_session
-from documentlm_core.schemas import PrimarySourceCreate, SourceType
+from documentlm_core.dependencies import get_current_user_id
+from documentlm_core.schemas import SourceType
 from documentlm_core.services.source import (
+    add_source_for_user,
     compute_content_hash,
-    create_primary_source,
-    delete_source,
+    delete_source_for_user,
     list_sources,
 )
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -35,14 +36,15 @@ async def get_sources_intake(
     request: Request,
     topic_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Response:
     from documentlm_core.services.topic import get_topic
 
-    topic = await get_topic(session, topic_id)
+    topic = await get_topic(session, topic_id, user_id=user_id)
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
 
-    primary_sources = await list_sources(session, topic_id, primary_only=True)
+    primary_sources = await list_sources(session, topic_id, user_id=user_id, primary_only=True)
     return templates.TemplateResponse(
         request,
         "sources/intake.html",
@@ -65,11 +67,12 @@ async def post_extract_source(
     text: str | None = Form(default=None),
     title: str | None = Form(default=None),
     session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Response:
     """Extract a source and return an HTMX source card partial."""
     from documentlm_core.services.topic import get_topic
 
-    topic = await get_topic(session, topic_id)
+    topic = await get_topic(session, topic_id, user_id=user_id)
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
 
@@ -94,15 +97,16 @@ async def post_extract_source(
         )
 
     content_hash = compute_content_hash(content)
-    data = PrimarySourceCreate(
+    source, _ref, was_duplicate = await add_source_for_user(
+        session,
+        user_id=user_id,
         topic_id=topic_id,
-        source_type=stype,
         title=title or derived_title,
         content=content,
-        url=source_url,
         content_hash=content_hash,
+        source_type=stype.value,
+        url=source_url,
     )
-    source, was_duplicate = await create_primary_source(session, data)
     await session.commit()
 
     return templates.TemplateResponse(
@@ -171,16 +175,16 @@ async def delete_topic_source(
     topic_id: uuid.UUID,
     source_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Response:
-    from documentlm_core.services.chroma import delete_source_chunks, get_chroma_client
+    from documentlm_core.services.topic import get_topic
 
-    try:
-        await delete_source(session, source_id)
-        await session.commit()
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    topic = await get_topic(session, topic_id, user_id=user_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
 
-    delete_source_chunks(get_chroma_client(), topic_id, source_id)
+    await delete_source_for_user(session, user_id=user_id, source_id=source_id, topic_id=topic_id)
+    await session.commit()
     return HTMLResponse(content="", status_code=200, headers={"HX-Trigger": "sourceDeleted"})
 
 
@@ -195,12 +199,13 @@ async def suggest_sources(
     topic_id: uuid.UUID,
     query: str = Form(...),
     session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Response:
     """Search the web for suggestions; return a card-list partial."""
     from documentlm_core.agents.academic_scout import search_web, search_youtube
     from documentlm_core.services.topic import get_topic
 
-    topic = await get_topic(session, topic_id)
+    topic = await get_topic(session, topic_id, user_id=user_id)
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
 
@@ -230,6 +235,7 @@ async def search_paperstore(
     topic_id: uuid.UUID,
     query: str = Form(...),
     session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Response:
     """Search papers.teleosis.ai and return a paperstore suggestions partial."""
     import os
@@ -237,7 +243,7 @@ async def search_paperstore(
     import httpx
     from documentlm_core.services.topic import get_topic
 
-    topic = await get_topic(session, topic_id)
+    topic = await get_topic(session, topic_id, user_id=user_id)
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
 

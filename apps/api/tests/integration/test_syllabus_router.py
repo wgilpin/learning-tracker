@@ -12,13 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_status_updates_item(
-    test_client: AsyncClient, async_session: AsyncSession
+    test_client: AsyncClient, async_session: AsyncSession, test_user
 ) -> None:
     from documentlm_core.schemas import SyllabusItemCreate, TopicCreate
     from documentlm_core.services.syllabus import create_syllabus_item
     from documentlm_core.services.topic import create_topic
 
-    topic = await create_topic(async_session, TopicCreate(title="Status Router Test"))
+    topic = await create_topic(async_session, TopicCreate(title="Status Router Test"), user_id=test_user.id)
     item = await create_syllabus_item(
         async_session, SyllabusItemCreate(topic_id=topic.id, title="Item A")
     )
@@ -37,13 +37,13 @@ async def test_patch_status_updates_item(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_status_mastered(
-    test_client: AsyncClient, async_session: AsyncSession
+    test_client: AsyncClient, async_session: AsyncSession, test_user
 ) -> None:
     from documentlm_core.schemas import SyllabusItemCreate, SyllabusStatus, TopicCreate
     from documentlm_core.services.syllabus import create_syllabus_item, list_syllabus_items
     from documentlm_core.services.topic import create_topic
 
-    topic = await create_topic(async_session, TopicCreate(title="Mastered Test"))
+    topic = await create_topic(async_session, TopicCreate(title="Mastered Test"), user_id=test_user.id)
     item = await create_syllabus_item(
         async_session, SyllabusItemCreate(topic_id=topic.id, title="Section 1")
     )
@@ -62,13 +62,13 @@ async def test_patch_status_mastered(
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_patch_status_invalid_value_returns_422(
-    test_client: AsyncClient, async_session: AsyncSession
+    test_client: AsyncClient, async_session: AsyncSession, test_user
 ) -> None:
     from documentlm_core.schemas import SyllabusItemCreate, TopicCreate
     from documentlm_core.services.syllabus import create_syllabus_item
     from documentlm_core.services.topic import create_topic
 
-    topic = await create_topic(async_session, TopicCreate(title="422 Test"))
+    topic = await create_topic(async_session, TopicCreate(title="422 Test"), user_id=test_user.id)
     item = await create_syllabus_item(
         async_session, SyllabusItemCreate(topic_id=topic.id, title="Item")
     )

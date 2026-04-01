@@ -120,7 +120,7 @@ class PrimarySourceCreate(BaseModel):
 
 class SourceRead(BaseModel):
     id: UUID
-    topic_id: UUID
+    topic_id: UUID | None = None
     source_type: SourceType
     is_primary: bool
     index_status: IndexStatus

@@ -103,19 +103,19 @@ This is a uv-workspace monorepo. Key roots:
 
 ### Tests for User Story 3 ⚠️ Write FIRST — must FAIL before T028
 
-- [ ] T024 [P] [US3] Write integration tests `test_topic_isolation_*` in `apps/api/tests/integration/test_access_control.py` — user A creates topic; user B lists topics (empty); user B GETs user A's topic ID (404); user B attempts to DELETE user A's topic (404)
-- [ ] T025 [P] [US3] Write integration tests `test_child_isolation_*` in `apps/api/tests/integration/test_access_control.py` — user A creates topic with syllabus item; user B cannot access that syllabus item; user A marks progress; user B has no progress record
+- [X] T024 [P] [US3] Write integration tests `test_topic_isolation_*` in `apps/api/tests/integration/test_access_control.py` — user A creates topic; user B lists topics (empty); user B GETs user A's topic ID (404); user B attempts to DELETE user A's topic (404)
+- [X] T025 [P] [US3] Write integration tests `test_child_isolation_*` in `apps/api/tests/integration/test_access_control.py` — user A creates topic with syllabus item; user B cannot access that syllabus item; user A marks progress; user B has no progress record
 
 ### Implementation for User Story 3
 
-- [ ] T026 [US3] Write Alembic migration `0006_add_user_id_nullable_to_topics.py` in `packages/documentlm-core/src/documentlm_core/db/migrations/versions/` — adds nullable `user_id` UUID FK column to `topics` referencing `users.id ON DELETE CASCADE`; adds index `topics_user_id_idx`; verify upgrade + downgrade
-- [ ] T027 [US3] Write Alembic migration `0007_backfill_seed_user.py` — creates seed user row with id `00000000-0000-0000-0000-000000000001`, email `seed@localhost`, and a bcrypt hash of a placeholder password; `UPDATE topics SET user_id = '00000000-...' WHERE user_id IS NULL`; verify upgrade only (downgrade is no-op)
-- [ ] T028 [US3] Write Alembic migration `0008_topics_user_id_not_null.py` — applies `NOT NULL` constraint to `topics.user_id`; verify upgrade + downgrade
-- [ ] T029 [US3] Update `Topic` SQLAlchemy model in `packages/documentlm-core/src/documentlm_core/db/models.py` — add `user_id: Mapped[uuid.UUID]` column with `ForeignKey("users.id", ondelete="CASCADE")`; add `user: Mapped[User]` relationship
-- [ ] T030 [US3] Update `apps/api/src/api/routers/topics.py` — add `user_id: uuid.UUID = Depends(get_current_user_id)` to all handlers; filter all `SELECT` queries with `WHERE topics.user_id = :user_id`; `GET /topics/{id}` returns 404 (not 403) if topic not found for that user; `POST /topics` sets `topic.user_id = user_id`
-- [ ] T031 [P] [US3] Update `apps/api/src/api/routers/syllabus.py` — add `get_current_user_id` dependency; all handlers resolve topic first with `user_id` filter; return 404 if topic not owned by current user
-- [ ] T032 [P] [US3] Update `apps/api/src/api/routers/chapters.py` — same ownership pattern as T031
-- [ ] T033 [P] [US3] Update `apps/api/src/api/routers/bibliography.py` — same ownership pattern as T031
+- [X] T026 [US3] Write Alembic migration `0006_add_user_id_nullable_to_topics.py` in `packages/documentlm-core/src/documentlm_core/db/migrations/versions/` — adds nullable `user_id` UUID FK column to `topics` referencing `users.id ON DELETE CASCADE`; adds index `topics_user_id_idx`; verify upgrade + downgrade
+- [X] T027 [US3] Write Alembic migration `0007_backfill_seed_user.py` — creates seed user row with id `00000000-0000-0000-0000-000000000001`, email `seed@localhost`, and a bcrypt hash of a placeholder password; `UPDATE topics SET user_id = '00000000-...' WHERE user_id IS NULL`; verify upgrade only (downgrade is no-op)
+- [X] T028 [US3] Write Alembic migration `0008_topics_user_id_not_null.py` — applies `NOT NULL` constraint to `topics.user_id`; verify upgrade + downgrade
+- [X] T029 [US3] Update `Topic` SQLAlchemy model in `packages/documentlm-core/src/documentlm_core/db/models.py` — add `user_id: Mapped[uuid.UUID]` column with `ForeignKey("users.id", ondelete="CASCADE")`; add `user: Mapped[User]` relationship
+- [X] T030 [US3] Update `apps/api/src/api/routers/topics.py` — add `user_id: uuid.UUID = Depends(get_current_user_id)` to all handlers; filter all `SELECT` queries with `WHERE topics.user_id = :user_id`; `GET /topics/{id}` returns 404 (not 403) if topic not found for that user; `POST /topics` sets `topic.user_id = user_id`
+- [X] T031 [P] [US3] Update `apps/api/src/api/routers/syllabus.py` — add `get_current_user_id` dependency; all handlers resolve topic first with `user_id` filter; return 404 if topic not owned by current user
+- [X] T032 [P] [US3] Update `apps/api/src/api/routers/chapters.py` — same ownership pattern as T031
+- [X] T033 [P] [US3] Update `apps/api/src/api/routers/bibliography.py` — same ownership pattern as T031
 
 **Checkpoint**: All topic/content routes enforce user isolation. US3 tests pass.
 

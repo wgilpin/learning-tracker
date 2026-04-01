@@ -9,12 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_create_and_get_chapter(async_session: AsyncSession) -> None:
+async def test_create_and_get_chapter(async_session: AsyncSession, test_user) -> None:
     from documentlm_core.services.chapter import create_chapter, get_chapter
     from documentlm_core.services.syllabus import create_syllabus_item
     from documentlm_core.services.topic import create_topic
 
-    topic = await create_topic(async_session, TopicCreate(title="Chapter Test"))
+    topic = await create_topic(async_session, TopicCreate(title="Chapter Test"), user_id=test_user.id)
     item = await create_syllabus_item(
         async_session, SyllabusItemCreate(topic_id=topic.id, title="No Prereqs")
     )
@@ -29,13 +29,13 @@ async def test_create_and_get_chapter(async_session: AsyncSession) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_create_chapter_for_child_item(async_session: AsyncSession) -> None:
+async def test_create_chapter_for_child_item(async_session: AsyncSession, test_user) -> None:
     """Chapter creation succeeds for a child item (parent-blocking is enforced at router level)."""
     from documentlm_core.services.chapter import create_chapter
     from documentlm_core.services.syllabus import create_syllabus_item
     from documentlm_core.services.topic import create_topic
 
-    topic = await create_topic(async_session, TopicCreate(title="Child Item Test"))
+    topic = await create_topic(async_session, TopicCreate(title="Child Item Test"), user_id=test_user.id)
     parent = await create_syllabus_item(
         async_session, SyllabusItemCreate(topic_id=topic.id, title="Parent")
     )

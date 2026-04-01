@@ -78,20 +78,23 @@ class Topic(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow
     )
 
+    owner: Mapped[User] = relationship("User")
     syllabus_items: Mapped[list[SyllabusItem]] = relationship(
         "SyllabusItem", back_populates="topic", cascade="all, delete-orphan"
     )
     chapters: Mapped[list[AtomicChapter]] = relationship(
         "AtomicChapter", back_populates="topic", cascade="all, delete-orphan"
-    )
-    sources: Mapped[list[Source]] = relationship(
-        "Source", back_populates="topic", cascade="all, delete-orphan"
     )
 
 
@@ -152,9 +155,6 @@ class Source(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    topic_id: Mapped[uuid.UUID] = mapped_column(
-        SQLUUID(as_uuid=True), ForeignKey("topics.id", ondelete="CASCADE"), nullable=False
-    )
     source_type: Mapped[str] = mapped_column(String(20), nullable=False, default="SEARCH")
     index_status: Mapped[str] = mapped_column(String(10), nullable=False, default="PENDING")
     index_error: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -171,16 +171,46 @@ class Source(Base):
         DateTime(timezone=True), nullable=False, default=_utcnow
     )
 
-    __table_args__ = (
-        UniqueConstraint("topic_id", "doi", name="uq_source_topic_doi"),
-        UniqueConstraint("topic_id", "url", name="uq_source_topic_url"),
-        UniqueConstraint("topic_id", "content_hash", name="uq_source_topic_content_hash"),
-    )
-
-    topic: Mapped[Topic] = relationship("Topic", back_populates="sources")
     chapter_sources: Mapped[list[ChapterSource]] = relationship(
         "ChapterSource", back_populates="source", cascade="all, delete-orphan"
     )
+    user_source_refs: Mapped[list[UserSourceRef]] = relationship(
+        "UserSourceRef", back_populates="source", cascade="all, delete-orphan"
+    )
+
+
+class UserSourceRef(Base):
+    """Per-user, per-topic reference to a globally-deduplicated Source."""
+
+    __tablename__ = "user_source_refs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("sources.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    topic_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("topics.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "source_id", "topic_id", name="uq_user_source_ref"),
+    )
+
+    source: Mapped[Source] = relationship("Source", back_populates="user_source_refs")
 
 
 class ChapterSource(Base):

@@ -6,6 +6,7 @@ import uuid
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @pytest.mark.integration
@@ -48,7 +49,7 @@ async def test_get_topic_detail(test_client: AsyncClient) -> None:
     # Create a topic first
     post = await test_client.post("/topics", data={"title": "Graph Theory"}, follow_redirects=False)
     location = post.headers["location"]
-    topic_id = location.split("/topics/")[1].rstrip("/")
+    topic_id = location.split("/topics/")[1].split("/")[0]
 
     response = await test_client.get(f"/topics/{topic_id}")
     assert response.status_code == 200
@@ -58,12 +59,12 @@ async def test_get_topic_detail(test_client: AsyncClient) -> None:
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_syllabus_returns_partial(
-    test_client: AsyncClient, async_session
+    test_client: AsyncClient, async_session: AsyncSession, test_user
 ) -> None:
     from documentlm_core.schemas import TopicCreate
     from documentlm_core.services.topic import create_topic
 
-    topic = await create_topic(async_session, TopicCreate(title="Calculus"))
+    topic = await create_topic(async_session, TopicCreate(title="Calculus"), user_id=test_user.id)
 
     response = await test_client.get(
         f"/topics/{topic.id}/syllabus",
@@ -74,11 +75,13 @@ async def test_get_syllabus_returns_partial(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_topic_status_endpoint(test_client: AsyncClient, async_session) -> None:
+async def test_topic_status_endpoint(
+    test_client: AsyncClient, async_session: AsyncSession, test_user
+) -> None:
     from documentlm_core.schemas import TopicCreate
     from documentlm_core.services.topic import create_topic
 
-    topic = await create_topic(async_session, TopicCreate(title="Status Test"))
+    topic = await create_topic(async_session, TopicCreate(title="Status Test"), user_id=test_user.id)
 
     response = await test_client.get(f"/topics/{topic.id}/status")
     assert response.status_code == 200

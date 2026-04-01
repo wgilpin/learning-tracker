@@ -13,7 +13,7 @@ import chromadb
 import pytest
 from documentlm_core.schemas import IndexStatus, SourceType
 from documentlm_core.services.chroma import (
-    query_topic_chunks,
+    query_topic_chunks_with_sources,
     upsert_source_chunks,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,18 +23,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 class TestPipelineEndToEnd:
     @pytest.mark.asyncio
     async def test_search_source_indexed_after_pipeline(
-        self, async_session: AsyncSession
+        self, async_session: AsyncSession, test_user
     ) -> None:
         """A SEARCH source with a URL is INDEXED after extract_and_index_source runs."""
         from documentlm_core.db.models import Source, Topic
         from documentlm_core.services.pipeline import extract_and_index_source
 
-        topic = Topic(title="Test Topic")
+        topic = Topic(title="Test Topic", user_id=test_user.id)
         async_session.add(topic)
         await async_session.flush()
 
         source = Source(
-            topic_id=topic.id,
             source_type=SourceType.SEARCH,
             url="https://example.com/paper",
             title="A Paper",
@@ -61,23 +60,24 @@ class TestPipelineEndToEnd:
         assert source.index_status == IndexStatus.INDEXED
         assert source.content is not None
 
-        chunks = query_topic_chunks(ephemeral, topic.id, "machine learning", n_results=10)
+        chunks = query_topic_chunks_with_sources(
+            ephemeral, [source.id], "machine learning", n_results=10
+        )
         assert len(chunks) >= 1
 
     @pytest.mark.asyncio
     async def test_failed_extraction_does_not_block_other_sources(
-        self, async_session: AsyncSession
+        self, async_session: AsyncSession, test_user
     ) -> None:
         """A source that fails extraction is marked FAILED; pipeline does not raise."""
         from documentlm_core.db.models import Source, Topic
         from documentlm_core.services.pipeline import extract_and_index_source
 
-        topic = Topic(title="Test Topic 2")
+        topic = Topic(title="Test Topic 2", user_id=test_user.id)
         async_session.add(topic)
         await async_session.flush()
 
         source = Source(
-            topic_id=topic.id,
             source_type=SourceType.URL_SCRAPE,
             url="https://broken.example",
             title="Broken Source",
@@ -105,18 +105,17 @@ class TestPipelineEndToEnd:
 
     @pytest.mark.asyncio
     async def test_doi_only_search_source_marked_failed(
-        self, async_session: AsyncSession
+        self, async_session: AsyncSession, test_user
     ) -> None:
         """A SEARCH source with only a DOI (no URL) is marked FAILED immediately."""
         from documentlm_core.db.models import Source, Topic
         from documentlm_core.services.pipeline import extract_and_index_source
 
-        topic = Topic(title="DOI Topic")
+        topic = Topic(title="DOI Topic", user_id=test_user.id)
         async_session.add(topic)
         await async_session.flush()
 
         source = Source(
-            topic_id=topic.id,
             source_type=SourceType.SEARCH,
             doi="10.1234/example",
             title="DOI Paper",
@@ -140,17 +139,16 @@ class TestPipelineEndToEnd:
 class TestChapterScribeRetrieval:
     @pytest.mark.asyncio
     async def test_scribe_receives_source_chunks_when_indexed(
-        self, async_session: AsyncSession
+        self, async_session: AsyncSession, test_user
     ) -> None:
         """Chapter scribe prompt contains source material when chunks exist."""
-        from documentlm_core.db.models import Source, Topic
+        from documentlm_core.db.models import Source, Topic, UserSourceRef
 
-        topic = Topic(title="ML Topic")
+        topic = Topic(title="ML Topic", user_id=test_user.id)
         async_session.add(topic)
         await async_session.flush()
 
         source = Source(
-            topic_id=topic.id,
             title="Backpropagation Paper",
             authors=["LeCun"],
             source_type="SEARCH",
@@ -158,12 +156,20 @@ class TestChapterScribeRetrieval:
         async_session.add(source)
         await async_session.flush()
 
+        # Add UserSourceRef so chapter scribe can find this source for the topic
+        ref = UserSourceRef(
+            user_id=test_user.id,
+            source_id=source.id,
+            topic_id=topic.id,
+        )
+        async_session.add(ref)
+        await async_session.flush()
+
         ephemeral = chromadb.EphemeralClient()
 
         # Pre-populate ChromaDB with known content linked to this source
         upsert_source_chunks(
             ephemeral,
-            topic.id,
             source.id,
             ["Neural networks learn from data through backpropagation."],
         )
@@ -245,16 +251,32 @@ class TestChapterScribeRetrieval:
 
     @pytest.mark.asyncio
     async def test_scribe_context_bounded_to_ten_chunks(
-        self, async_session: AsyncSession
+        self, async_session: AsyncSession, test_user
     ) -> None:
         """Scribe receives at most 10 chunks regardless of collection size."""
-        topic_id = uuid.uuid4()
+        from documentlm_core.db.models import Source, Topic, UserSourceRef
+
+        topic = Topic(title="Chunks Topic", user_id=test_user.id)
+        async_session.add(topic)
+        await async_session.flush()
+
+        source = Source(title="Big Source", authors=[], source_type="SEARCH")
+        async_session.add(source)
+        await async_session.flush()
+
+        ref = UserSourceRef(
+            user_id=test_user.id,
+            source_id=source.id,
+            topic_id=topic.id,
+        )
+        async_session.add(ref)
+        await async_session.flush()
+
         ephemeral = chromadb.EphemeralClient()
-        source_id = uuid.uuid4()
 
         # Insert 15 chunks
         chunks = [f"Content chunk number {i} about neural networks." for i in range(15)]
-        upsert_source_chunks(ephemeral, topic_id, source_id, chunks)
+        upsert_source_chunks(ephemeral, source.id, chunks)
 
         captured_prompts: list[str] = []
 
@@ -282,7 +304,7 @@ class TestChapterScribeRetrieval:
                 item_id=uuid.uuid4(),
                 item_title="Neural Networks",
                 item_description=None,
-                topic_id=topic_id,
+                topic_id=topic.id,
                 session=async_session,
             )
 

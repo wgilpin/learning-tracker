@@ -11,20 +11,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_create_topic(async_session: AsyncSession) -> None:
+async def test_create_topic(async_session: AsyncSession, test_user) -> None:
     from documentlm_core.services.topic import create_topic
 
-    result = await create_topic(async_session, TopicCreate(title="Quantum Mechanics"))
+    result = await create_topic(async_session, TopicCreate(title="Quantum Mechanics"), user_id=test_user.id)
     assert result.id is not None
     assert result.title == "Quantum Mechanics"
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_get_topic(async_session: AsyncSession) -> None:
+async def test_get_topic(async_session: AsyncSession, test_user) -> None:
     from documentlm_core.services.topic import create_topic, get_topic
 
-    created = await create_topic(async_session, TopicCreate(title="Linear Algebra"))
+    created = await create_topic(async_session, TopicCreate(title="Linear Algebra"), user_id=test_user.id)
     fetched = await get_topic(async_session, created.id)
     assert fetched is not None
     assert fetched.id == created.id
@@ -42,12 +42,12 @@ async def test_get_topic_not_found(async_session: AsyncSession) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_list_topics(async_session: AsyncSession) -> None:
+async def test_list_topics(async_session: AsyncSession, test_user) -> None:
     from documentlm_core.services.topic import create_topic, list_topics
 
-    await create_topic(async_session, TopicCreate(title="Topic A"))
-    await create_topic(async_session, TopicCreate(title="Topic B"))
-    topics = await list_topics(async_session)
+    await create_topic(async_session, TopicCreate(title="Topic A"), user_id=test_user.id)
+    await create_topic(async_session, TopicCreate(title="Topic B"), user_id=test_user.id)
+    topics = await list_topics(async_session, user_id=test_user.id)
     titles = [t.title for t in topics]
     assert "Topic A" in titles
     assert "Topic B" in titles
@@ -55,11 +55,11 @@ async def test_list_topics(async_session: AsyncSession) -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_create_syllabus_item_no_parent(async_session: AsyncSession) -> None:
+async def test_create_syllabus_item_no_parent(async_session: AsyncSession, test_user) -> None:
     from documentlm_core.services.syllabus import create_syllabus_item
     from documentlm_core.services.topic import create_topic
 
-    topic = await create_topic(async_session, TopicCreate(title="Test Topic"))
+    topic = await create_topic(async_session, TopicCreate(title="Test Topic"), user_id=test_user.id)
     item = await create_syllabus_item(
         async_session,
         SyllabusItemCreate(topic_id=topic.id, title="Introduction"),
@@ -71,11 +71,11 @@ async def test_create_syllabus_item_no_parent(async_session: AsyncSession) -> No
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_create_syllabus_item_with_parent(async_session: AsyncSession) -> None:
+async def test_create_syllabus_item_with_parent(async_session: AsyncSession, test_user) -> None:
     from documentlm_core.services.syllabus import create_syllabus_item
     from documentlm_core.services.topic import create_topic
 
-    topic = await create_topic(async_session, TopicCreate(title="Test Topic 2"))
+    topic = await create_topic(async_session, TopicCreate(title="Test Topic 2"), user_id=test_user.id)
     parent = await create_syllabus_item(
         async_session,
         SyllabusItemCreate(topic_id=topic.id, title="Section 1"),

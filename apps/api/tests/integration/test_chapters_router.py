@@ -10,13 +10,13 @@ from httpx import AsyncClient
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_chapter_draft_blocked_returns_409(test_client: AsyncClient, async_session) -> None:
+async def test_chapter_draft_blocked_returns_409(test_client: AsyncClient, async_session, test_user) -> None:
     """POST /syllabus-items/{id}/chapter returns 409 when parent has no chapter."""
     from documentlm_core.schemas import SyllabusItemCreate, TopicCreate
     from documentlm_core.services.syllabus import create_syllabus_item
     from documentlm_core.services.topic import create_topic
 
-    topic = await create_topic(async_session, TopicCreate(title="409 Test"))
+    topic = await create_topic(async_session, TopicCreate(title="409 Test"), user_id=test_user.id)
     parent = await create_syllabus_item(
         async_session, SyllabusItemCreate(topic_id=topic.id, title="Parent")
     )
@@ -35,14 +35,14 @@ async def test_chapter_draft_blocked_returns_409(test_client: AsyncClient, async
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_chapter_draft_no_parent_returns_200(
-    test_client: AsyncClient, async_session
+    test_client: AsyncClient, async_session, test_user
 ) -> None:
     """POST /syllabus-items/{id}/chapter returns 200 for a root item (no parent)."""
     from documentlm_core.schemas import SyllabusItemCreate, TopicCreate
     from documentlm_core.services.syllabus import create_syllabus_item
     from documentlm_core.services.topic import create_topic
 
-    topic = await create_topic(async_session, TopicCreate(title="Root Item Test"))
+    topic = await create_topic(async_session, TopicCreate(title="Root Item Test"), user_id=test_user.id)
     item = await create_syllabus_item(
         async_session, SyllabusItemCreate(topic_id=topic.id, title="No Parent")
     )
