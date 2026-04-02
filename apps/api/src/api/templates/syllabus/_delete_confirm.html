@@ -1,0 +1,23 @@
+<li id="child-{{ item_id }}" class="syllabus-child syllabus-child--confirm-delete">
+  {% if has_content %}
+  <p class="warning-banner">This chapter has associated content (drafted chapter or sub-chapters). Deleting it will remove all associated content.</p>
+  {% endif %}
+  {% if is_last %}
+  <p class="warning-banner warning-banner--strong">This is the last chapter in the syllabus. Deleting it will leave the syllabus empty.</p>
+  {% endif %}
+  <p>Are you sure you want to delete this chapter?</p>
+  <div class="form-actions">
+    <button class="btn-danger btn-sm"
+            hx-delete="/syllabus-items/{{ item_id }}"
+            hx-target="#child-{{ item_id }}"
+            hx-swap="outerHTML">
+      Delete
+    </button>
+    <button class="btn-secondary btn-sm"
+            hx-get="/syllabus-items/{{ item_id }}/restore"
+            hx-target="#child-{{ item_id }}"
+            hx-swap="outerHTML">
+      Cancel
+    </button>
+  </div>
+</li>

@@ -1663,7 +1663,60 @@ details[open] .source-add-summary {
 
 /* Syllabus nav (left panel) */
 .syllabus-nav { border-right: 1px solid #e5e7eb; padding-right: 1rem; overflow-y: auto; }
-.syllabus-nav-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #9ca3af; margin-bottom: 0.75rem; }
+
+.syllabus-nav-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.syllabus-nav-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #9ca3af; margin: 0; }
+
+/* Edit-mode toggle (pencil icon in header) */
+.edit-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.2rem;
+    border-radius: 4px;
+    color: #d1d5db;
+    line-height: 1;
+    transition: color 0.15s, background 0.15s;
+}
+.edit-toggle .material-symbols-outlined { font-size: 0.9rem; }
+.edit-toggle:hover { color: #6b7280; background: #f3f4f6; }
+.edit-toggle.is-active { color: #2563eb; background: #eff6ff; }
+.edit-toggle.is-active:hover { color: #1d4ed8; background: #dbeafe; }
+
+/* Edit controls — hidden until .is-editing is active on the nav */
+.syllabus-child-actions { display: none; }
+.syllabus-nav.is-editing .syllabus-child-actions { display: flex; align-items: center; gap: 0.1rem; flex-shrink: 0; }
+
+.add-chapter-wrapper { display: none; }
+.syllabus-nav.is-editing .add-chapter-wrapper { display: block; margin-top: 0.75rem; }
+
+/* "Add chapter" inline button — fits the nav's quiet visual register */
+.btn-add-chapter {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: 100%;
+    padding: 0.3rem 0.5rem;
+    background: none;
+    border: 1.5px dashed #d1d5db;
+    border-radius: 5px;
+    color: #9ca3af;
+    font-size: 0.8rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.btn-add-chapter .material-symbols-outlined { font-size: 0.85rem; }
+.btn-add-chapter:hover { border-color: #93c5fd; color: #2563eb; background: #eff6ff; }
 
 /* Strip all list markers and padding from syllabus lists */
 ul.syllabus-tree,

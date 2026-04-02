@@ -11,7 +11,12 @@
 
   <div class="topic-detail-columns">
     <nav class="syllabus-nav" id="syllabus-panel">
-      <p class="syllabus-nav-label">Syllabus</p>
+      <div class="syllabus-nav-header">
+        <span class="syllabus-nav-label">Syllabus</span>
+        <button class="edit-toggle" id="syllabus-edit-toggle" aria-label="Toggle edit mode" title="Edit syllabus">
+          <span class="material-symbols-outlined">edit</span>
+        </button>
+      </div>
       <div id="syllabus-items-list"
            hx-get="/topics/{{ topic.id }}/syllabus{% if lesson_id %}?lesson={{ lesson_id }}{% endif %}"
            hx-trigger="load">
@@ -215,6 +220,15 @@
     bodyInput.value = prompt;
     form.requestSubmit();
   };
+})();
+
+(function () {
+  var btn = document.getElementById('syllabus-edit-toggle');
+  var nav = document.getElementById('syllabus-panel');
+  btn.addEventListener('click', function () {
+    nav.classList.toggle('is-editing');
+    btn.classList.toggle('is-active');
+  });
 })();
 </script>
 {% endblock %}
