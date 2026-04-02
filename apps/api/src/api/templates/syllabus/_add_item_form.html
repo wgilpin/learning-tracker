@@ -1,0 +1,34 @@
+<form id="add-item-form"
+      hx-post="/topics/{{ topic_id }}/syllabus-items"
+      hx-target="#syllabus-tree-list"
+      hx-swap="beforeend"
+      hx-on::after-request="if(event.detail.successful) this.remove()">
+  {% if parent_id %}
+  <input type="hidden" name="parent_id" value="{{ parent_id }}">
+  {% endif %}
+  {% if error %}
+  <p class="form-error">{{ error }}</p>
+  {% endif %}
+  <div class="form-field">
+    <label for="add-title">Title</label>
+    <input id="add-title" name="title" type="text" required placeholder="Chapter title" autofocus>
+  </div>
+  <div id="description-area" class="form-field">
+    <label for="add-description">Description <span class="optional">(optional)</span></label>
+    <textarea id="add-description" name="description" rows="3" placeholder="Brief description…"></textarea>
+    <button type="button" class="btn-secondary btn-sm"
+            hx-post="/topics/{{ topic_id }}/syllabus-items/generate-description{% if parent_id %}?parent_id={{ parent_id }}{% endif %}"
+            hx-include="#add-title"
+            hx-target="#description-area"
+            hx-swap="outerHTML">
+      Generate description
+    </button>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn-primary">Add chapter</button>
+    <button type="button" class="btn-secondary"
+            onclick="this.closest('form').remove()">
+      Cancel
+    </button>
+  </div>
+</form>

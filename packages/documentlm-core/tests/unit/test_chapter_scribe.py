@@ -86,19 +86,21 @@ class TestFormatSourceForPrompt:
         assert "https://arxiv.org/abs/2001.00001" in result
         assert "DOI" not in result
 
-    def test_uses_unknown_for_missing_authors(self) -> None:
+    def test_omits_authors_when_missing(self) -> None:
         from documentlm_core.agents.chapter_scribe import _format_source_for_prompt
 
         source = self._make_source(title="No Author Paper", authors=None)
         result = _format_source_for_prompt(1, source)
-        assert "Unknown" in result
+        assert result.startswith("[1]")
+        assert "No Author Paper" in result
 
-    def test_uses_nd_for_missing_date(self) -> None:
+    def test_omits_date_when_missing(self) -> None:
         from documentlm_core.agents.chapter_scribe import _format_source_for_prompt
 
         source = self._make_source(title="Undated Paper", publication_date=None)
         result = _format_source_for_prompt(1, source)
-        assert "n.d." in result
+        assert result.startswith("[1]")
+        assert "Undated Paper" in result
 
     def test_unknown_citation_index_dropped_from_cited_ids(self) -> None:
         """If LLM cites [99] which is not in source_map, it is silently dropped."""

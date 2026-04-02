@@ -1,5 +1,5 @@
 {% if items %}
-<ul class="syllabus-tree">
+<ul class="syllabus-tree" id="syllabus-tree-list">
   {% for item in items %}
   <li class="syllabus-section{% if item.id in ancestor_ids %} is-open{% endif %}" id="item-{{ item.id }}">
     <button class="syllabus-section-btn{% if item.id in ancestor_ids %} is-open{% endif %}"
@@ -29,3 +29,14 @@
   <span>Generating syllabus…</span>
 </div>
 {% endif %}
+<div id="syllabus-warning"></div>
+<div class="add-chapter-wrapper">
+  <button class="btn-add-chapter"
+          hx-get="/topics/{{ topic_id }}/syllabus-items/add-form"
+          hx-target="#add-chapter-form-container"
+          hx-swap="innerHTML">
+    <span class="material-symbols-outlined">add</span>
+    Add chapter
+  </button>
+  <div id="add-chapter-form-container"></div>
+</div>

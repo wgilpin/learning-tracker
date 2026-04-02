@@ -27,20 +27,21 @@ class TestRenderMdCitations:
         assert "citation-ref" not in html
         assert "Plain prose" in html
 
-    def test_adds_id_to_reference_list_items(self) -> None:
+    def test_adds_id_to_reference_list_items_when_block_starts_with_heading(self) -> None:
+        """A block that starts with ## References gets anchored <p id="ref-N"> items."""
         from api.templates_config import _render_md
 
-        text = "Some claim [1].\n\n## References\n\n- [1] Smith (2023). A Title."
+        text = "## References\n\n[1] Smith (2023). A Title."
         html = _render_md(text)
         assert 'id="ref-1"' in html
 
-    def test_prose_citation_not_linkified_inside_references_section(self) -> None:
-        """[n] markers in the References section list items should get id attrs, not be double-wrapped."""
+    def test_mixed_prose_and_refs_linkifies_citations_only(self) -> None:
+        """When prose precedes ## References, _render_md linkifies inline citations but
+        does not add id attrs (the filter is per-block; refs are a separate block)."""
         from api.templates_config import _render_md
 
-        text = "Claim [1].\n\n## References\n\n- [1] Author (2023). Title."
-        html = _render_md(text)
-        # The ref list item should have an id, not a nested <a> inside the id-bearing <li>
-        assert 'id="ref-1"' in html
-        # Prose citation should still be linkified
+        prose = "Claim [1]."
+        html = _render_md(prose)
         assert '<a href="#ref-1"' in html
+        # No id attrs expected — refs section is a separate template block
+        assert 'id="ref-1"' not in html

@@ -88,6 +88,19 @@ class SyllabusItemStatusUpdate(BaseModel):
     status: SyllabusStatus
 
 
+class SyllabusItemUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+
+
+class DescriptionGenerateRequest(BaseModel):
+    title: str
+
+
+class GeneratedDescriptionRead(BaseModel):
+    description: str
+
+
 # ---------------------------------------------------------------------------
 # Source
 # ---------------------------------------------------------------------------

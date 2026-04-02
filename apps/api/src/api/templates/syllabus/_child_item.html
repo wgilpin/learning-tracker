@@ -1,4 +1,7 @@
 <li class="syllabus-child{% if child.status == 'MASTERED' %} is-done{% endif %}{% if child.id == lesson_id %} is-active{% endif %}" id="child-{{ child.id }}">
+  {% if duplicate_warning %}
+  <p class="warning-banner">A chapter with this title already exists in this section.</p>
+  {% endif %}
   <input type="checkbox"
          {% if child.status == 'MASTERED' %}checked{% endif %}
          hx-patch="/syllabus-items/{{ child.id }}/status"
@@ -31,4 +34,16 @@
       hx-swap="innerHTML"
       {% endif %}></ul>
   {% endif %}
+  <span class="syllabus-child-actions">
+    <button class="btn-icon"
+            title="Edit"
+            hx-get="/syllabus-items/{{ child.id }}/edit-form"
+            hx-target="#child-{{ child.id }}"
+            hx-swap="outerHTML">✎</button>
+    <button class="btn-icon btn-icon--danger"
+            title="Delete"
+            hx-get="/syllabus-items/{{ child.id }}/delete-confirm"
+            hx-target="#child-{{ child.id }}"
+            hx-swap="outerHTML">✕</button>
+  </span>
 </li>
