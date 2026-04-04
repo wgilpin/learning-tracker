@@ -248,11 +248,34 @@
   var messages = [];
   var streamTimeout = null;
 
+  function resetChat() {
+    messages = [];
+    Array.from(chatMessages.children).forEach(function (child) {
+      if (child.id !== 'chat-suggested' && child.id !== 'chat-loading') {
+        chatMessages.removeChild(child);
+      }
+    });
+    chatSuggested.style.display = '';
+    chatLoading.style.display = 'none';
+  }
+
   // Sync the real AtomicChapter ID into chatPanel after the reading panel loads
   document.getElementById('reading-panel').addEventListener('htmx:afterSettle', function () {
     var chapterEl = document.querySelector('.chapter-inline[data-chapter-id]');
     if (chapterEl) {
       chatPanel.dataset.chapterId = chapterEl.dataset.chapterId;
+    }
+    resetChat();
+    if (chapterEl && chapterEl.dataset.hasQuiz) {
+      var chapterId = chapterEl.dataset.chapterId;
+      chatSuggested.style.display = 'none';
+      var quizDiv = document.createElement('div');
+      quizDiv.innerHTML = '<div class="chat-loading" style="display:flex"><span class="spinner"></span><span>Loading quiz…</span></div>';
+      quizDiv.setAttribute('hx-get', '/chapters/' + chapterId + '/quiz');
+      quizDiv.setAttribute('hx-trigger', 'load');
+      quizDiv.setAttribute('hx-swap', 'outerHTML');
+      chatMessages.appendChild(quizDiv);
+      htmx.process(quizDiv);
     }
   });
 

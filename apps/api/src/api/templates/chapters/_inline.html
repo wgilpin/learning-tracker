@@ -1,4 +1,4 @@
-<div class="chapter-inline" data-chapter-id="{{ chapter.id }}">
+<div class="chapter-inline" data-chapter-id="{{ chapter.id }}"{% if has_quiz %} data-has-quiz="true"{% endif %}>
   <h3 class="chapter-title">{{ item.title }}</h3>
   {% for paragraph in chapter.content.split('\n\n') %}
   {% if paragraph.strip() %}

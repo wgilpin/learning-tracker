@@ -41,7 +41,8 @@ async def get_or_trigger_chapter(
 
     if existing is not None:
         chapter = await get_chapter(session, existing.id)
-        return templates.TemplateResponse(request, "chapters/_inline.html", {"chapter": chapter, "item": item})
+        has_quiz = existing.quiz_questions is not None
+        return templates.TemplateResponse(request, "chapters/_inline.html", {"chapter": chapter, "item": item, "has_quiz": has_quiz})
 
     if item_id in _failed_items:
         return templates.TemplateResponse(request, "chapters/_failed.html", {"item_id": item_id})
