@@ -155,6 +155,10 @@ main:has(.editor-layout) {
     border-left: 1px solid #e5e7eb;
     overflow: hidden;
     min-height: 0;
+    position: sticky;
+    top: 64px;
+    height: calc(100vh - 64px); /* corrected by JS via sizeChatPanel() */
+    align-self: start;
 }
 
 .chat-panel-header {

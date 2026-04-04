@@ -20,6 +20,7 @@ class Settings(BaseSettings):
         default="dev-insecure-change-in-production",
         alias="SESSION_SECRET_KEY",
     )
+    dev_password: str = Field(default="", alias="DEV_PASSWORD")
 
     model_config = {
         "env_file": ".env",

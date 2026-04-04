@@ -412,5 +412,18 @@
     }
   });
 })();
+
+// Keep chat panel filling from its current top to the viewport bottom,
+// both before and after the sticky threshold kicks in.
+(function () {
+  var panel = document.getElementById('chat-panel');
+  if (!panel) return;
+  function sizeChatPanel() {
+    panel.style.height = (window.innerHeight - panel.getBoundingClientRect().top) + 'px';
+  }
+  sizeChatPanel();
+  window.addEventListener('scroll', sizeChatPanel, { passive: true });
+  window.addEventListener('resize', sizeChatPanel, { passive: true });
+})();
 </script>
 {% endblock %}
