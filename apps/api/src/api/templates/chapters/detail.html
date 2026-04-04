@@ -54,10 +54,7 @@
   </div>
 
   <form id="modal-comment-form"
-        hx-post="/chapters/{{ chapter.id }}/comments"
-        hx-swap="beforeend"
-        hx-on:htmx:before-request="document.getElementById('modal-submit-btn').classList.add('modal-submit-btn--loading')"
-        hx-on:htmx:after-request="document.getElementById('modal-submit-btn').classList.remove('modal-submit-btn--loading'); document.getElementById('command-modal').close(); this.reset()">
+        hx-post="/chapters/{{ chapter.id }}/comments">
     <input type="hidden" name="paragraph_anchor" id="modal-anchor">
 
     <div class="ai-modal-input-section">
@@ -69,28 +66,28 @@
     </div>
 
     <div class="ai-modal-quick-actions">
-      <button type="button" class="ai-quick-action" onclick="submitQuick('Explain this in simpler terms')">
+      <button type="button" class="ai-quick-action" data-prompt="Explain this in simpler terms">
         <span class="material-symbols-outlined">school</span>
         <div>
           <div class="ai-quick-action-title">Explain simpler</div>
           <div class="ai-quick-action-sub">Use plain language</div>
         </div>
       </button>
-      <button type="button" class="ai-quick-action" onclick="submitQuick('Give me a worked example of this')">
+      <button type="button" class="ai-quick-action" data-prompt="Give me a worked example of this">
         <span class="material-symbols-outlined">calculate</span>
         <div>
           <div class="ai-quick-action-title">Worked example</div>
           <div class="ai-quick-action-sub">Show me how it works</div>
         </div>
       </button>
-      <button type="button" class="ai-quick-action" onclick="submitQuick('Elaborate on this in more depth')">
+      <button type="button" class="ai-quick-action" data-prompt="Elaborate on this in more depth">
         <span class="material-symbols-outlined">expand</span>
         <div>
           <div class="ai-quick-action-title">Elaborate</div>
           <div class="ai-quick-action-sub">Go deeper on this</div>
         </div>
       </button>
-      <button type="button" class="ai-quick-action" onclick="submitQuick('Why is this important to understand?')">
+      <button type="button" class="ai-quick-action" data-prompt="Why is this important to understand?">
         <span class="material-symbols-outlined">lightbulb</span>
         <div>
           <div class="ai-quick-action-title">Why it matters</div>
@@ -176,8 +173,6 @@
     previewText.textContent = selectedText
       ? '\u201c' + selectedText.slice(0, 120) + (selectedText.length > 120 ? '\u2026' : '') + '\u201d'
       : '';
-    form.setAttribute('hx-target', '#comments-' + currentAnchor);
-    htmx.process(form);
 
     bodyInput.value = '';
     hideBtn();
@@ -185,13 +180,21 @@
     bodyInput.focus();
   });
 
-  // Hide button when modal closes
   modal.addEventListener('close', function () { hideBtn(); });
 
-  window.submitQuick = function (prompt) {
-    bodyInput.value = prompt;
-    form.requestSubmit();
-  };
+  form.addEventListener('htmx:afterRequest', function (e) {
+    if (e.detail.successful) {
+      modal.close();
+      form.reset();
+    }
+  });
+
+  document.querySelectorAll('.ai-quick-action[data-prompt]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      bodyInput.value = this.dataset.prompt;
+      form.requestSubmit();
+    });
+  });
 })();
 </script>
 {% endblock %}

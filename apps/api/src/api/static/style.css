@@ -1061,12 +1061,14 @@ dialog::backdrop {
     transform: scale(0.97);
 }
 
-.modal-submit-btn--loading {
+.modal-submit-btn--loading,
+#modal-comment-form.htmx-request #modal-submit-btn {
     color: transparent;
     pointer-events: none;
 }
 
-.modal-submit-btn--loading::after {
+.modal-submit-btn--loading::after,
+#modal-comment-form.htmx-request #modal-submit-btn::after {
     content: "";
     position: absolute;
     width: 0.85rem;

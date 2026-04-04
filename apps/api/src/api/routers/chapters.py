@@ -157,7 +157,10 @@ async def post_comment(
     await session.commit()
     asyncio.create_task(_respond_to_comment_bg(comment.id, chapter_id))
 
-    return templates.TemplateResponse(request, "chapters/_margin_comment.html", {"comment": comment})
+    response = templates.TemplateResponse(request, "chapters/_margin_comment.html", {"comment": comment})
+    response.headers["HX-Retarget"] = f"#comments-{paragraph_anchor}"
+    response.headers["HX-Reswap"] = "beforeend"
+    return response
 
 
 @router.get("/comments/{comment_id}", response_class=HTMLResponse)
