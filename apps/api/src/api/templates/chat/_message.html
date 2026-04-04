@@ -1,0 +1,10 @@
+{# Single chat message bubble. role: "user" | "assistant". #}
+<div class="chat-message chat-message--{{ role }}">
+  <div class="chat-message-content">
+    {% if role == "assistant" %}
+      {{ content | md | safe }}
+    {% else %}
+      {{ content }}
+    {% endif %}
+  </div>
+</div>

@@ -76,8 +76,7 @@ def _format_source_for_prompt(n: int, source) -> str:  # source: Source ORM obje
     parts: list[str] = []
     if source.authors:
         parts.append(", ".join(source.authors))
-    if source.publication_date:
-        parts.append(f"({source.publication_date.year})")
+    parts.append(f"({source.publication_date.year})" if source.publication_date else "(n.d.)")
     parts.append(source.title)
     if source.doi:
         parts.append(f"DOI:{source.doi}")

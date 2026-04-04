@@ -1,0 +1,29 @@
+{# Single quiz question with option buttons and feedback area. #}
+{# Context: question, question_index, user_response, is_correct, answered, chapter_id #}
+<div class="quiz-question-wrapper" id="quiz-question-{{ question_index }}">
+  <p class="quiz-question-text">{{ question_index + 1 }}. {{ question.text }}</p>
+
+  {% if answered %}
+    <p class="quiz-question-feedback {% if is_correct %}quiz-feedback--correct{% else %}quiz-feedback--wrong{% endif %}">
+      {% if is_correct %}✓ Correct{% else %}✗ Incorrect{% endif %}
+      — {{ question.explanation }}
+    </p>
+  {% endif %}
+
+  <div class="quiz-options">
+    {% for option in question.options %}
+      {% set opt_i = loop.index0 %}
+      <button
+        class="quiz-option{% if answered and opt_i == question.correct_index %} quiz-option--correct{% elif answered and opt_i == user_response and not is_correct %} quiz-option--wrong{% elif answered %} quiz-option--disabled{% endif %}"
+        {% if answered %}disabled{% endif %}
+        hx-post="/chapters/{{ chapter_id }}/quiz/responses"
+        hx-target="#quiz-question-{{ question_index }}"
+        hx-swap="outerHTML"
+        hx-vals='{"question_index": {{ question_index }}, "selected_option_index": {{ opt_i }}}'
+        hx-encoding="application/x-www-form-urlencoded"
+      >
+        {{ option }}
+      </button>
+    {% endfor %}
+  </div>
+</div>

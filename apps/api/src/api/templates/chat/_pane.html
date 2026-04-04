@@ -1,0 +1,46 @@
+{# Chat pane: header, suggested buttons, message list, input area. #}
+{# Mounted inside .chat-panel which is position:fixed right sidebar. #}
+
+<div class="chat-panel-header">
+  <div class="chat-panel-header-title">
+    <span class="material-symbols-outlined">chat</span>
+    Ask about this topic
+  </div>
+</div>
+
+<div class="chat-messages" id="chat-messages">
+  <div class="chat-suggested" id="chat-suggested">
+    <button class="chat-suggested-btn" type="button" data-message="Give me a quiz on this chapter">
+      <span class="material-symbols-outlined">quiz</span>
+      Quiz me
+    </button>
+    <button class="chat-suggested-btn" type="button" data-message="Set me a question to test my understanding">
+      <span class="material-symbols-outlined">psychology</span>
+      Socratic question
+    </button>
+    <button class="chat-suggested-btn" type="button" data-message="What is the main idea of this topic?">
+      <span class="material-symbols-outlined">help_outline</span>
+      Main idea
+    </button>
+  </div>
+
+  <div class="chat-loading" id="chat-loading" style="display:none;">
+    <span class="spinner"></span>
+    <span>Thinking…</span>
+  </div>
+</div>
+
+<div class="chat-input-wrap">
+  <form id="chat-form" autocomplete="off" style="position:relative;">
+    <textarea
+      class="chat-input-textarea"
+      id="chat-input"
+      rows="2"
+      placeholder="Ask a question about this topic…"
+      required
+    ></textarea>
+    <button type="submit" class="chat-send-btn" aria-label="Send">
+      <span class="material-symbols-outlined">send</span>
+    </button>
+  </form>
+</div>

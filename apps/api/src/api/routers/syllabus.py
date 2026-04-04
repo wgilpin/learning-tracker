@@ -79,13 +79,17 @@ async def get_children(
             leaf_ids.append(child.id)
 
     items_with_chapters: set[uuid.UUID] = set()
+    quiz_passed_map: dict[uuid.UUID, bool | None] = {}
     if leaf_ids:
         result = await session.execute(
-            select(AtomicChapter.syllabus_item_id).where(
-                AtomicChapter.syllabus_item_id.in_(leaf_ids)
-            )
+            select(
+                AtomicChapter.syllabus_item_id,
+                AtomicChapter.quiz_passed,
+            ).where(AtomicChapter.syllabus_item_id.in_(leaf_ids))
         )
-        items_with_chapters = {row[0] for row in result}
+        for row in result:
+            items_with_chapters.add(row[0])
+            quiz_passed_map[row[0]] = row[1]
 
     ancestor_ids: set[uuid.UUID] = set(await get_ancestor_ids(session, lesson)) if lesson else set()
     children_with_flags: list[tuple] = [
@@ -99,6 +103,7 @@ async def get_children(
             "children_with_flags": children_with_flags,
             "lesson_id": lesson,
             "ancestor_ids": ancestor_ids,
+            "quiz_passed_map": quiz_passed_map,
         },
     )
 

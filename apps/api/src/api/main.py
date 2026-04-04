@@ -109,10 +109,10 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def require_auth(request: Request, call_next):  # type: ignore[no-untyped-def]
         path = request.url.path
-        if path not in _PUBLIC_PATHS and not path.startswith("/static"):
-            if not request.session.get("user_id"):
-                from starlette.responses import RedirectResponse
-                return RedirectResponse(url="/login", status_code=302)
+        is_public = path in _PUBLIC_PATHS or path.startswith("/static")
+        if not is_public and not request.session.get("user_id"):
+            from starlette.responses import RedirectResponse
+            return RedirectResponse(url="/login", status_code=302)
         return await call_next(request)
 
     # SessionMiddleware must be added LAST so it is outermost and runs before
@@ -130,7 +130,7 @@ def create_app() -> FastAPI:
     if os.path.isdir(static_dir):
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-    from api.routers import auth, bibliography, chapters, sources, syllabus, topics
+    from api.routers import auth, bibliography, chapters, chat, sources, syllabus, topics
 
     app.include_router(auth.router)
     app.include_router(topics.router)
@@ -138,6 +138,7 @@ def create_app() -> FastAPI:
     app.include_router(chapters.router)
     app.include_router(sources.router)
     app.include_router(bibliography.router)
+    app.include_router(chat.router)
 
     return app
 

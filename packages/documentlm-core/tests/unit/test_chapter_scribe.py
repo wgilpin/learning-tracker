@@ -92,6 +92,7 @@ class TestFormatSourceForPrompt:
         source = self._make_source(title="No Author Paper", authors=None)
         result = _format_source_for_prompt(1, source)
         assert result.startswith("[1]")
+        assert "Unknown" not in result
         assert "No Author Paper" in result
 
     def test_omits_date_when_missing(self) -> None:

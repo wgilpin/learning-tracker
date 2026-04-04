@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import uuid as _uuid_module
 from datetime import date, datetime
 from enum import StrEnum
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, model_validator
@@ -187,3 +189,44 @@ class MarginCommentRead(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ---------------------------------------------------------------------------
+# Chat / Quiz (007-chat-agents-panel)
+# ---------------------------------------------------------------------------
+
+
+class QuizQuestion(BaseModel):
+    text: str
+    options: list[str]
+    correct_index: int
+    explanation: str
+
+
+class QuizState(BaseModel):
+    questions: list[QuizQuestion]
+    user_responses: list[int | None]
+    passed: bool | None
+    generated_at: datetime
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage]
+    chapter_id: _uuid_module.UUID | None = None
+
+
+class QuizResponseSubmit(BaseModel):
+    question_index: int
+    selected_option_index: int
+
+
+class QuizAnswerResult(BaseModel):
+    question_index: int
+    is_correct: bool
+    explanation: str
+    quiz_passed: bool | None

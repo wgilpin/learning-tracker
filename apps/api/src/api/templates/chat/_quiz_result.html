@@ -1,0 +1,17 @@
+{# Pass/fail result banner with score and retake button. #}
+{# Context: passed, correct, total, chapter_id #}
+<div id="quiz-result-banner" class="quiz-result-banner {% if passed %}quiz-result--pass{% else %}quiz-result--fail{% endif %}">
+  {% if passed %}
+    <span class="material-symbols-outlined quiz-result-icon">check_circle</span>
+    <span class="quiz-result-text">Passed — {{ correct }}/{{ total }} correct</span>
+  {% else %}
+    <span class="material-symbols-outlined quiz-result-icon">cancel</span>
+    <span class="quiz-result-text">{{ correct }}/{{ total }} correct — not passed yet</span>
+    <button class="quiz-retake-btn"
+            hx-post="/chapters/{{ chapter_id }}/quiz/retake"
+            hx-target="#quiz-container"
+            hx-swap="outerHTML">
+      Retake Quiz
+    </button>
+  {% endif %}
+</div>

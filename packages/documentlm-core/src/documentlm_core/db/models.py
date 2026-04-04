@@ -261,6 +261,14 @@ class AtomicChapter(Base):
         DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
     )
 
+    # Quiz state (nullable — None means quiz never generated / not attempted)
+    quiz_questions: Mapped[list | None] = mapped_column(JSON, nullable=True, default=None)
+    quiz_user_responses: Mapped[list | None] = mapped_column(JSON, nullable=True, default=None)
+    quiz_passed: Mapped[bool | None] = mapped_column(nullable=True, default=None)
+    quiz_generated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
+
     topic: Mapped[Topic] = relationship("Topic", back_populates="chapters")
     syllabus_item: Mapped[SyllabusItem] = relationship("SyllabusItem", back_populates="chapter")
     margin_comments: Mapped[list[MarginComment]] = relationship(

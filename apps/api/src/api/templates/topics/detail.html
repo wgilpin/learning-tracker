@@ -38,6 +38,10 @@
       <p class="reading-empty">Select a topic from the syllabus to start reading.</p>
       {% endif %}
     </section>
+
+    <aside class="chat-panel" id="chat-panel" data-chapter-id="">
+      {% include "chat/_pane.html" with context %}
+    </aside>
   </div>
 
 </div>
@@ -228,6 +232,161 @@
   btn.addEventListener('click', function () {
     nav.classList.toggle('is-editing');
     btn.classList.toggle('is-active');
+  });
+})();
+</script>
+
+<script>
+(function () {
+  var topicId = '{{ topic.id }}';
+  var chatPanel = document.getElementById('chat-panel');
+  var chatForm = document.getElementById('chat-form');
+  var chatInput = document.getElementById('chat-input');
+  var chatMessages = document.getElementById('chat-messages');
+  var chatSuggested = document.getElementById('chat-suggested');
+  var chatLoading = document.getElementById('chat-loading');
+  var messages = [];
+  var streamTimeout = null;
+
+  // Sync the real AtomicChapter ID into chatPanel after the reading panel loads
+  document.getElementById('reading-panel').addEventListener('htmx:afterSettle', function () {
+    var chapterEl = document.querySelector('.chapter-inline[data-chapter-id]');
+    if (chapterEl) {
+      chatPanel.dataset.chapterId = chapterEl.dataset.chapterId;
+    }
+  });
+
+  // Suggested button click: populate input and submit
+  chatSuggested.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-message]');
+    if (!btn) return;
+    chatInput.value = btn.dataset.message;
+    chatForm.requestSubmit();
+  });
+
+  function appendMessage(role, content) {
+    var div = document.createElement('div');
+    div.className = 'chat-message chat-message--' + role;
+    var inner = document.createElement('div');
+    inner.className = 'chat-message-content';
+    if (role === 'assistant') {
+      inner.innerHTML = content;
+    } else {
+      inner.textContent = content;
+    }
+    div.appendChild(inner);
+    chatMessages.insertBefore(div, chatLoading);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return inner;
+  }
+
+  chatForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var text = chatInput.value.trim();
+    if (!text) return;
+
+    // Hide suggested buttons after first message
+    if (messages.length === 0) {
+      chatSuggested.style.display = 'none';
+    }
+
+    messages.push({ role: 'user', content: text });
+    appendMessage('user', text);
+    chatInput.value = '';
+    chatLoading.style.display = 'flex';
+
+    var chapterId = chatPanel.dataset.chapterId || null;
+    var body = JSON.stringify({ messages: messages, chapter_id: chapterId || null });
+
+    var assistantContent = '';
+    var assistantEl = null;
+
+    // Timeout guard: 15s with no event → show error
+    streamTimeout = setTimeout(function () {
+      chatLoading.style.display = 'none';
+      appendMessage('assistant', 'No response received. Please try again.');
+    }, 15000);
+
+    fetch('/topics/' + topicId + '/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body,
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+
+      function read() {
+        reader.read().then(function (r) {
+          if (r.done) {
+            chatLoading.style.display = 'none';
+            clearTimeout(streamTimeout);
+            return;
+          }
+          clearTimeout(streamTimeout);
+          streamTimeout = null;
+
+          buffer += decoder.decode(r.value, { stream: true });
+          var lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          lines.forEach(function (line) {
+            if (!line.startsWith('data: ')) return;
+            var payload;
+            try { payload = JSON.parse(line.slice(6)); } catch (ex) { return; }
+
+            if (payload.quiz_redirect) {
+              chatLoading.style.display = 'none';
+              chatMessages.innerHTML = '';
+              var quizDiv = document.createElement('div');
+              quizDiv.innerHTML = '<div class="chat-loading" style="display:flex"><span class="spinner"></span><span>Generating quiz…</span></div>';
+              quizDiv.setAttribute('hx-get', payload.quiz_redirect);
+              quizDiv.setAttribute('hx-trigger', 'load');
+              quizDiv.setAttribute('hx-swap', 'outerHTML');
+              chatMessages.appendChild(quizDiv);
+              htmx.process(quizDiv);
+              return;
+            }
+
+            if (payload.done) {
+              chatLoading.style.display = 'none';
+              if (assistantEl) {
+                messages.push({ role: 'assistant', content: assistantContent });
+              }
+              return;
+            }
+
+            if (!assistantEl) {
+              chatLoading.style.display = 'none';
+              assistantEl = appendMessage('assistant', '');
+            }
+            assistantContent += payload.chunk;
+            assistantEl.textContent = assistantContent;
+          });
+          read();
+        }).catch(function () {
+          chatLoading.style.display = 'none';
+          appendMessage('assistant', 'An error occurred. Please try again.');
+        });
+      }
+      read();
+    }).catch(function () {
+      chatLoading.style.display = 'none';
+      clearTimeout(streamTimeout);
+      appendMessage('assistant', 'Failed to connect. Please try again.');
+    });
+  });
+
+  // Listen for quizComplete HTMX event to load result banner
+  document.addEventListener('quizComplete', function () {
+    var banner = document.getElementById('quiz-result-banner');
+    if (banner) {
+      htmx.ajax('GET', '/chapters/' + (chatPanel.dataset.chapterId || '') + '/quiz/result', {
+        target: '#quiz-result-banner',
+        swap: 'outerHTML',
+      });
+    }
   });
 })();
 </script>

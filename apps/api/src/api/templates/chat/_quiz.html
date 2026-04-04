@@ -1,0 +1,48 @@
+{# Full quiz UI: loops over questions, includes result banner slot. #}
+<div class="quiz-container" id="quiz-container" data-chapter-id="{{ chapter_id }}">
+  <div class="quiz-header">
+    <h3 class="quiz-title">Chapter Quiz</h3>
+    {% if quiz.passed is not none %}
+      <div id="quiz-result-banner"
+           hx-get="/chapters/{{ chapter_id }}/quiz/result"
+           hx-trigger="load"
+           hx-swap="outerHTML">
+        <span class="spinner"></span>
+      </div>
+    {% else %}
+      <div id="quiz-result-banner"></div>
+    {% endif %}
+  </div>
+
+  <div class="quiz-questions" id="quiz-questions">
+    {% for question in quiz.questions %}
+      {% set i = loop.index0 %}
+      {% set user_resp = quiz.user_responses[i] if quiz.user_responses else none %}
+      <div class="quiz-question-wrapper" id="quiz-question-{{ i }}">
+        <p class="quiz-question-text">{{ loop.index }}. {{ question.text }}</p>
+        {% if user_resp is not none %}
+          <p class="quiz-question-feedback {% if user_resp == question.correct_index %}quiz-feedback--correct{% else %}quiz-feedback--wrong{% endif %}">
+            {% if user_resp == question.correct_index %}✓ Correct{% else %}✗ Incorrect{% endif %}
+            — {{ question.explanation }}
+          </p>
+        {% endif %}
+        <div class="quiz-options">
+          {% for option in question.options %}
+            {% set opt_i = loop.index0 %}
+            <button
+              class="quiz-option{% if user_resp is not none and opt_i == question.correct_index %} quiz-option--correct{% elif user_resp is not none and opt_i == user_resp and user_resp != question.correct_index %} quiz-option--wrong{% elif user_resp is not none %} quiz-option--disabled{% endif %}"
+              {% if user_resp is not none %}disabled{% endif %}
+              hx-post="/chapters/{{ chapter_id }}/quiz/responses"
+              hx-target="#quiz-question-{{ i }}"
+              hx-swap="outerHTML"
+              hx-vals='{"question_index": {{ i }}, "selected_option_index": {{ opt_i }}}'
+              hx-encoding="application/x-www-form-urlencoded"
+            >
+              {{ option }}
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>

@@ -17,6 +17,9 @@
           hx-push-url="/topics/{{ child.topic_id }}?lesson={{ child.id }}">
     {% if not has_chapter %}<em>{{ child.title }}</em>{% else %}{{ child.title }}{% endif %}
     {% if child.description %}<span class="syllabus-child-desc">{{ child.description }}</span>{% endif %}
+    {% if quiz_passed_map is defined and quiz_passed_map.get(child.id) == true %}
+      <span class="quiz-pass-badge" title="Quiz passed" aria-label="Quiz passed">✓</span>
+    {% endif %}
   </button>
   {% else %}
   <button class="syllabus-child-btn{% if child.id in ancestor_ids %} is-open{% endif %}"
