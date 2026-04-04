@@ -32,7 +32,9 @@ The chapter should:
 - Be structured with markdown headings (##) for major sections
 - End with a concise summary of what was covered
 
-If prior chapter summaries are provided, briefly acknowledge how this topic builds on them.
+If "Prior chapters" are listed in the prompt, you may briefly connect this topic to them.
+If no prior chapters are listed, this is the first chapter — do NOT reference or imply any
+previous material.
 
 Write only the chapter content — no preamble, no "here is your chapter" introductions.
 
