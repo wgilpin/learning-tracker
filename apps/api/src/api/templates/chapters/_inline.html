@@ -11,6 +11,17 @@
     >↻ Regenerate</button>
     {% endif %}
   </div>
+  {% if illustrations_pending %}
+  <div
+    class="illustrations-pending"
+    hx-get="/syllabus-items/{{ item.id }}/chapter"
+    hx-trigger="every 3s"
+    hx-target="#reading-panel"
+    hx-swap="innerHTML"
+  >
+    <span class="spinner"></span> Generating illustrations. This may take a minute…
+  </div>
+  {% endif %}
   {% for paragraph in chapter.content.split('\n\n') %}
   {% if paragraph.strip() %}
   <div class="chapter-paragraph" id="para-{{ chapter.id }}-{{ loop.index }}">

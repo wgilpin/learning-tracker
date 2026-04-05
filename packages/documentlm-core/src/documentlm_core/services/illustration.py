@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -62,6 +63,61 @@ def _split_into_sections(content: str) -> list[tuple[int, str, str]]:
     return sections
 
 
+async def _process_section(
+    chapter_id: uuid.UUID,
+    para_index: int,
+    title: str,
+    body: str,
+    model: str,
+) -> tuple[int, bytes, str, str] | None:
+    """Assess and generate an image for one section.
+
+    Returns (para_index, image_bytes, mime_type, description) or None if the
+    section doesn't need an image or any step fails. Never raises.
+    """
+    try:
+        assessment = await assess_paragraph(title, body)
+    except Exception:
+        logger.exception(
+            "IllustrationPipeline: assessment failed chapter_id=%s section=%d %r",
+            chapter_id,
+            para_index,
+            title[:60],
+        )
+        return None
+
+    if not assessment.requires_image:
+        logger.debug(
+            "IllustrationPipeline: section %d %r does not require image",
+            para_index,
+            title[:60],
+        )
+        return None
+
+    try:
+        result = await generate_image(assessment.image_description, model)
+    except Exception:
+        logger.exception(
+            "IllustrationPipeline: generation failed chapter_id=%s section=%d %r",
+            chapter_id,
+            para_index,
+            title[:60],
+        )
+        return None
+
+    if result is None:
+        logger.warning(
+            "IllustrationPipeline: generator returned None chapter_id=%s section=%d %r",
+            chapter_id,
+            para_index,
+            title[:60],
+        )
+        return None
+
+    image_bytes, mime_type = result
+    return (para_index, image_bytes, mime_type, assessment.image_description)
+
+
 async def run_illustration_pipeline(
     chapter_id: uuid.UUID,
     content: str,
@@ -69,11 +125,9 @@ async def run_illustration_pipeline(
 ) -> None:
     """Assess each ## section and generate + persist illustrations where needed.
 
-    Splits chapter content into ## heading sections. Each section (heading +
-    body) is assessed as a semantic unit — larger chunks produce better image
-    descriptions than individual \n\n paragraphs. The paragraph_index stored
-    per illustration is the 1-based index of the ## paragraph in the \n\n
-    split, matching loop.index in Jinja2 templates.
+    Splits chapter content into ## heading sections. All sections are assessed
+    and generated concurrently via asyncio.gather. DB writes happen sequentially
+    after all concurrent work completes.
 
     Per-section failures are logged and skipped — the pipeline always runs to
     completion and never raises.
@@ -85,64 +139,30 @@ async def run_illustration_pipeline(
     """
     sections = _split_into_sections(content)
     total = len(sections)
+    model = settings.illustration_model
     logger.info(
         "IllustrationPipeline: starting chapter_id=%s sections=%d model=%r",
         chapter_id,
         total,
-        settings.illustration_model,
+        model,
+    )
+
+    results = await asyncio.gather(
+        *[_process_section(chapter_id, idx, title, body, model) for idx, title, body in sections]
     )
 
     generated = 0
-    for para_index, title, body in sections:
-        try:
-            assessment = await assess_paragraph(title, body)
-        except Exception:
-            logger.exception(
-                "IllustrationPipeline: assessment failed chapter_id=%s section=%d %r",
-                chapter_id,
-                para_index,
-                title[:60],
-            )
-            continue
-
-        if not assessment.requires_image:
-            logger.debug(
-                "IllustrationPipeline: section %d %r does not require image",
-                para_index,
-                title[:60],
-            )
-            continue
-
-        try:
-            result = await generate_image(
-                assessment.image_description, settings.illustration_model
-            )
-        except Exception:
-            logger.exception(
-                "IllustrationPipeline: generation failed chapter_id=%s section=%d %r",
-                chapter_id,
-                para_index,
-                title[:60],
-            )
-            continue
-
+    for result in results:
         if result is None:
-            logger.warning(
-                "IllustrationPipeline: generator returned None chapter_id=%s section=%d %r",
-                chapter_id,
-                para_index,
-                title[:60],
-            )
             continue
-
-        image_bytes, mime_type = result
+        para_index, image_bytes, mime_type, description = result
         illustration = ChapterIllustration(
             id=uuid.uuid4(),
             chapter_id=chapter_id,
             paragraph_index=para_index,
             image_data=image_bytes,
             image_mime_type=mime_type,
-            image_description=assessment.image_description,
+            image_description=description,
             created_at=datetime.now(UTC),
         )
         session.add(illustration)

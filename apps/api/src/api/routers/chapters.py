@@ -20,6 +20,8 @@ router = APIRouter()
 # Guards against duplicate background drafts when polling fires before the first draft completes.
 _drafting_items: set[uuid.UUID] = set()
 _failed_items: set[uuid.UUID] = set()
+# Tracks chapters whose illustration pipeline is still running.
+_illustrating_chapters: set[uuid.UUID] = set()
 
 
 @router.get("/syllabus-items/{item_id}/chapter", response_class=HTMLResponse)
@@ -56,6 +58,7 @@ async def get_or_trigger_chapter(
                 "item": item,
                 "has_quiz": has_quiz,
                 "illustrations": illustrations,
+                "illustrations_pending": existing.id in _illustrating_chapters,
                 "dev_mode": bool(settings.dev_password),
             },
         )
@@ -353,6 +356,7 @@ async def resolve_comment(
             "chapter": chapter,
             "item": item,
             "illustrations": illustrations,
+            "illustrations_pending": chapter.id in _illustrating_chapters,
             "dev_mode": bool(settings.dev_password),
         },
     )
@@ -395,6 +399,7 @@ async def _draft_chapter_bg(
 
         # Run illustration pipeline in a fresh session after chapter is committed.
         # Failures here must never affect chapter availability.
+        _illustrating_chapters.add(chapter.id)
         async with AsyncSessionFactory() as ill_session:
             try:
                 await run_illustration_pipeline(chapter.id, draft.content, ill_session)
@@ -406,6 +411,8 @@ async def _draft_chapter_bg(
                     item_id,
                 )
                 await ill_session.rollback()
+            finally:
+                _illustrating_chapters.discard(chapter.id)
     finally:
         _drafting_items.discard(item_id)
 
