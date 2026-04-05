@@ -21,6 +21,9 @@ class Settings(BaseSettings):
         alias="SESSION_SECRET_KEY",
     )
     dev_password: str = Field(default="", alias="DEV_PASSWORD")
+    illustration_model: str = Field(
+        default="gemini-3.1-flash-image-preview", alias="ILLUSTRATION_MODEL"
+    )
 
     model_config = {
         "env_file": ".env",

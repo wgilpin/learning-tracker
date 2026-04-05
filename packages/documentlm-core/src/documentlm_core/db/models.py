@@ -8,6 +8,8 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -277,6 +279,9 @@ class AtomicChapter(Base):
     chapter_sources: Mapped[list[ChapterSource]] = relationship(
         "ChapterSource", back_populates="chapter", cascade="all, delete-orphan"
     )
+    illustrations: Mapped[list[ChapterIllustration]] = relationship(
+        "ChapterIllustration", back_populates="chapter", cascade="all, delete-orphan"
+    )
 
 
 class MarginComment(Base):
@@ -301,4 +306,37 @@ class MarginComment(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     chapter: Mapped[AtomicChapter] = relationship("AtomicChapter", back_populates="margin_comments")
+
+
+# ---------------------------------------------------------------------------
+# ChapterIllustration  (008-lesson-illustrations)
+# ---------------------------------------------------------------------------
+
+
+class ChapterIllustration(Base):
+    __tablename__ = "chapter_illustrations"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    chapter_id: Mapped[uuid.UUID] = mapped_column(
+        SQLUUID(as_uuid=True),
+        ForeignKey("atomic_chapters.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    paragraph_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    image_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    image_mime_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    image_description: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+
+    __table_args__ = (
+        UniqueConstraint("chapter_id", "paragraph_index", name="uq_chapter_illustration"),
+    )
+
+    chapter: Mapped[AtomicChapter] = relationship(
+        "AtomicChapter", back_populates="illustrations"
+    )
 

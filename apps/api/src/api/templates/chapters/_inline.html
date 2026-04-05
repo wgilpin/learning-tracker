@@ -1,7 +1,39 @@
 <div class="chapter-inline" data-chapter-id="{{ chapter.id }}"{% if has_quiz %} data-has-quiz="true"{% endif %}>
-  <h3 class="chapter-title">{{ item.title }}</h3>
+  <div class="chapter-header">
+    <h3 class="chapter-title">{{ item.title }}</h3>
+    {% if dev_mode %}
+    <button
+      class="dev-regenerate-btn"
+      hx-delete="/syllabus-items/{{ item.id }}/chapter"
+      hx-target="#reading-panel"
+      hx-swap="innerHTML"
+      hx-confirm="Regenerate this chapter from scratch? All current content, illustrations, and comments will be deleted."
+    >↻ Regenerate</button>
+    {% endif %}
+  </div>
+  {% if illustrations_pending %}
+  <div
+    class="illustrations-pending"
+    hx-get="/syllabus-items/{{ item.id }}/chapter"
+    hx-trigger="every 3s"
+    hx-target="#reading-panel"
+    hx-swap="innerHTML"
+  >
+    <span class="spinner"></span> Generating illustrations. This may take a minute…
+  </div>
+  {% endif %}
+  {% set ns = namespace(pending_illus_index=none) %}
   {% for paragraph in chapter.content.split('\n\n') %}
   {% if paragraph.strip() %}
+  {% set is_heading = paragraph.strip().startswith('## ') %}
+  {% if is_heading and ns.pending_illus_index is not none %}
+  <img
+    src="/chapters/{{ chapter.id }}/illustrations/{{ ns.pending_illus_index }}"
+    alt="{{ illustrations[ns.pending_illus_index].image_description }}"
+    class="chapter-illustration"
+  />
+  {% set ns.pending_illus_index = none %}
+  {% endif %}
   <div class="chapter-paragraph" id="para-{{ chapter.id }}-{{ loop.index }}">
     {{ paragraph | md | safe }}
     <div class="margin-comments" id="comments-para-{{ chapter.id }}-{{ loop.index }}">
@@ -10,6 +42,16 @@
       {% endfor %}
     </div>
   </div>
+  {% if is_heading and illustrations and loop.index in illustrations %}
+  {% set ns.pending_illus_index = loop.index %}
+  {% endif %}
   {% endif %}
   {% endfor %}
+  {% if ns.pending_illus_index is not none %}
+  <img
+    src="/chapters/{{ chapter.id }}/illustrations/{{ ns.pending_illus_index }}"
+    alt="{{ illustrations[ns.pending_illus_index].image_description }}"
+    class="chapter-illustration"
+  />
+  {% endif %}
 </div>

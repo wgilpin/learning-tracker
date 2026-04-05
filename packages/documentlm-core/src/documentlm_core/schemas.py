@@ -230,3 +230,24 @@ class QuizAnswerResult(BaseModel):
     is_correct: bool
     explanation: str
     quiz_passed: bool | None
+
+
+# ---------------------------------------------------------------------------
+# Illustrations (008-lesson-illustrations)
+# ---------------------------------------------------------------------------
+
+
+class ParagraphAssessment(BaseModel):
+    requires_image: bool
+    image_description: str
+
+
+class IllustrationRead(BaseModel):
+    id: UUID
+    chapter_id: UUID
+    paragraph_index: int
+    image_mime_type: str
+    image_description: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
