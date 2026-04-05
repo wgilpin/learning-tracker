@@ -60,4 +60,14 @@
     <figcaption>{{ illustrations[ns.pending_illus_index].image_caption }}</figcaption>
   </figure>
   {% endif %}
+  {% if chapter.generation_input_tokens is not none %}
+  {% set text_cost = (chapter.generation_input_tokens / 1_000_000 * cost_input_per_m)
+                   + (chapter.generation_output_tokens / 1_000_000 * cost_output_per_m) %}
+  {% set total_cost = text_cost + (chapter.generation_image_count or 0) * cost_per_image %}
+  <p class="generation-cost">
+    Est. cost: <strong>${{ "%.4f" | format(total_cost) }}</strong>
+    <small>({{ chapter.generation_input_tokens }}↑ / {{ chapter.generation_output_tokens }}↓ tokens,
+           {{ chapter.generation_image_count or 0 }} image{{ 's' if (chapter.generation_image_count or 0) != 1 else '' }})</small>
+  </p>
+  {% endif %}
 </div>

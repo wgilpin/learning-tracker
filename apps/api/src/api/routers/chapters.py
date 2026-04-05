@@ -60,6 +60,9 @@ async def get_or_trigger_chapter(
                 "illustrations": illustrations,
                 "illustrations_pending": existing.id in _illustrating_chapters,
                 "dev_mode": bool(settings.dev_password),
+                "cost_input_per_m": settings.cost_input_per_m,
+                "cost_output_per_m": settings.cost_output_per_m,
+                "cost_per_image": settings.cost_per_image,
             },
         )
 

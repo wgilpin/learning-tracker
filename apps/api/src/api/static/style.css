@@ -2191,3 +2191,15 @@ button.syllabus-child-btn:hover { background: #eff6ff; color: #1d4ed8; }
     vertical-align: middle;
 }
 
+
+
+.generation-cost {
+    color: #aaa;
+    font-style: italic;
+    font-size: 0.8rem;
+    margin-top: 1.5rem;
+}
+
+.generation-cost strong {
+    font-weight: normal;
+}
