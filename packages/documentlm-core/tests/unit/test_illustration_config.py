@@ -85,7 +85,7 @@ class TestIllustrationModelConfig:
 
         captured_model: list[str] = []
 
-        async def fake_generate(desc: str, model: str) -> tuple[bytes, str] | None:
+        async def fake_generate(desc: str, model: str, body: str) -> tuple[bytes, str] | None:
             captured_model.append(model)
             return b"IMG", "image/png"
 
