@@ -1979,10 +1979,18 @@ button.syllabus-child-btn:hover { background: #eff6ff; color: #1d4ed8; }
 .btn-cta:disabled { opacity: 0.5; cursor: not-allowed; }
 .source-primary-badge { font-size: 0.7rem; font-weight: 700; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 4px; padding: 0.1rem 0.4rem; margin-right: 0.25rem; }
 .suggest-more-wrapper { margin-top: 1.25rem; }
+.suggest-section + .suggest-section { margin-top: 1.5rem; }
 .suggest-form { display: flex; gap: 0.5rem; align-items: center; }
 .suggest-input { margin-bottom: 0; flex: 1; }
-.suggestion-list { list-style: none; margin: 0.75rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.suggestion-section-title { margin: 0.75rem 0 0.25rem; font-size: 0.8rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+.suggestion-list { list-style: none; margin: 0.75rem 0 0.5rem; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 .suggestion-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 0.6rem 0.75rem; }
+.suggestion-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
+.suggestion-btn { display: flex; align-items: center; justify-content: center; width: 1.75rem; height: 1.75rem; border-radius: 50%; border: none; cursor: pointer; font-size: 0.9rem; line-height: 1; padding: 0; }
+.suggestion-btn--accept { background: #dcfce7; color: #15803d; }
+.suggestion-btn--accept:hover { background: #bbf7d0; }
+.suggestion-btn--reject { background: #fee2e2; color: #dc2626; }
+.suggestion-btn--reject:hover { background: #fecaca; }
 .suggestion-card-body { flex: 1; min-width: 0; }
 .suggestion-card-title { font-size: 0.85rem; font-weight: 600; color: #111827; margin: 0 0 0.2rem; }
 .suggestion-card-meta { font-size: 0.75rem; color: #6b7280; margin: 0 0 0.2rem; }

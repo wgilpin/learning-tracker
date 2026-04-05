@@ -10,26 +10,34 @@
       {% if s.tags %}<p class="suggestion-card-meta">{{ s.tags | join(", ") }}</p>{% endif %}
     </div>
     {% if s.extracted_text %}
-    <form hx-post="/topics/{{ topic_id }}/sources/extract"
-          hx-target="#source-cards"
-          hx-swap="beforeend"
-          hx-on::before-request="disableGenerate()"
-          hx-on::after-request="enableGenerate()">
-      <input type="hidden" name="source_type" value="RAW_TEXT">
-      <input type="hidden" name="title" value="{{ s.title }}">
-      <textarea name="text" style="display:none">{{ s.extracted_text }}</textarea>
-      <button type="submit" class="btn btn-secondary btn-sm">Add</button>
-    </form>
+    <div class="suggestion-actions">
+      <form hx-post="/topics/{{ topic_id }}/sources/extract"
+            hx-target="#source-cards"
+            hx-swap="beforeend"
+            hx-on::before-request="disableGenerate()"
+            hx-on::after-request="enableGenerate(); if(event.detail.successful) this.closest('li').remove()">
+        <input type="hidden" name="source_type" value="RAW_TEXT">
+        <input type="hidden" name="title" value="{{ s.title }}">
+        <textarea name="text" style="display:none">{{ s.extracted_text }}</textarea>
+        <button type="submit" class="suggestion-btn suggestion-btn--accept" title="Add source">&#10003;</button>
+      </form>
+      <button type="button" class="suggestion-btn suggestion-btn--reject" title="Dismiss"
+              onclick="dismissSuggestion(this)">&#10007;</button>
+    </div>
     {% elif s.url %}
-    <form hx-post="/topics/{{ topic_id }}/sources/extract"
-          hx-target="#source-cards"
-          hx-swap="beforeend"
-          hx-on::before-request="disableGenerate()"
-          hx-on::after-request="enableGenerate()">
-      <input type="hidden" name="source_type" value="URL_SCRAPE">
-      <input type="hidden" name="url" value="{{ s.url }}">
-      <button type="submit" class="btn btn-secondary btn-sm">Add</button>
-    </form>
+    <div class="suggestion-actions">
+      <form hx-post="/topics/{{ topic_id }}/sources/extract"
+            hx-target="#source-cards"
+            hx-swap="beforeend"
+            hx-on::before-request="disableGenerate()"
+            hx-on::after-request="enableGenerate(); if(event.detail.successful) this.closest('li').remove()">
+        <input type="hidden" name="source_type" value="URL_SCRAPE">
+        <input type="hidden" name="url" value="{{ s.url }}">
+        <button type="submit" class="suggestion-btn suggestion-btn--accept" title="Add source">&#10003;</button>
+      </form>
+      <button type="button" class="suggestion-btn suggestion-btn--reject" title="Dismiss"
+              onclick="dismissSuggestion(this)">&#10007;</button>
+    </div>
     {% endif %}
   </li>
   {% endfor %}

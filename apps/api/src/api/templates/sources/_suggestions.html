@@ -9,15 +9,19 @@
       {% if s.url %}<a class="suggestion-card-url" href="{{ s.url }}" target="_blank" rel="noopener">{{ s.url }}</a>{% endif %}
     </div>
     {% if s.url %}
-    <form hx-post="/topics/{{ topic_id }}/sources/extract"
-          hx-target="#source-cards"
-          hx-swap="beforeend"
-          hx-on::before-request="disableGenerate()"
-          hx-on::after-request="enableGenerate()">
-      <input type="hidden" name="source_type" value="URL_SCRAPE">
-      <input type="hidden" name="url" value="{{ s.url }}">
-      <button type="submit" class="btn btn-secondary btn-sm">Add</button>
-    </form>
+    <div class="suggestion-actions">
+      <form hx-post="/topics/{{ topic_id }}/sources/extract"
+            hx-target="#source-cards"
+            hx-swap="beforeend"
+            hx-on::before-request="disableGenerate()"
+            hx-on::after-request="enableGenerate(); if(event.detail.successful) this.closest('li').remove()">
+        <input type="hidden" name="source_type" value="URL_SCRAPE">
+        <input type="hidden" name="url" value="{{ s.url }}">
+        <button type="submit" class="suggestion-btn suggestion-btn--accept" title="Add source">&#10003;</button>
+      </form>
+      <button type="button" class="suggestion-btn suggestion-btn--reject" title="Dismiss"
+              onclick="dismissSuggestion(this)">&#10007;</button>
+    </div>
     {% endif %}
   </li>
   {% endfor %}

@@ -142,7 +142,42 @@ async def _fetch_url(url: str | None) -> str | None:
         return await fetch_arxiv_text(url)
     if url.endswith(".pdf"):
         return await fetch_pdf_text(url)
+    if "wikipedia.org/wiki/" in url:
+        return await _fetch_wikipedia(url)
     return await fetch_url_text(url)
+
+
+async def _fetch_wikipedia(url: str) -> str | None:
+    """Fetch a Wikipedia article via the wikipedia PyPI package (uses the API, not scraping)."""
+    import asyncio
+
+    try:
+        import wikipedia  # type: ignore[import-untyped]
+    except ImportError:
+        logger.warning("wikipedia package not installed — falling back to URL scrape for %s", url)
+        from nlp_utils.fetcher import fetch_url_text
+        return await fetch_url_text(url)
+
+    # Derive the page title from the URL path, e.g. /wiki/Graph_theory → "Graph theory"
+    path = url.split("/wiki/", 1)[-1].split("#")[0]
+    title = path.replace("_", " ")
+
+    def _sync_fetch() -> str | None:
+        try:
+            page = wikipedia.page(title, auto_suggest=False)
+            return page.content or None
+        except wikipedia.exceptions.DisambiguationError as e:
+            try:
+                page = wikipedia.page(e.options[0], auto_suggest=False)
+                return page.content or None
+            except Exception:
+                return None
+        except Exception:
+            logger.warning("wikipedia package failed to fetch %r", url)
+            return None
+
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _sync_fetch)
 
 
 async def _fetch_youtube(url: str | None) -> str | None:

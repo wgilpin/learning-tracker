@@ -129,81 +129,42 @@
       </div>
 
       <div class="suggest-more-wrapper">
-        <form class="suggest-form"
-              hx-post="/topics/{{ topic.id }}/sources/suggest"
-              hx-target="#suggestions"
-              hx-swap="innerHTML"
-              hx-indicator="#suggest-indicator">
-          <input type="text" name="query" class="intake-input suggest-input"
-                 placeholder="e.g. graph theory syllabus" required>
-          <button type="submit" class="btn btn-secondary btn-sm">Suggest sources</button>
-        </form>
-        <span id="suggest-indicator" class="htmx-indicator intake-spinner">
-          <span class="spinner"></span> Searching…
-        </span>
-        <div id="suggestions"></div>
+        <div class="suggest-section">
+          <form class="suggest-form"
+                hx-post="/topics/{{ topic.id }}/sources/suggest"
+                hx-target="#suggestions"
+                hx-swap="innerHTML"
+                hx-indicator="#suggest-indicator">
+            <input type="text" name="query" class="intake-input suggest-input"
+                   placeholder="e.g. graph theory syllabus" value="{{ topic.title }}" required>
+            <button type="submit" class="btn btn-secondary btn-sm">Suggest sources</button>
+          </form>
+          <span id="suggest-indicator" class="htmx-indicator intake-spinner">
+            <span class="spinner"></span> Searching…
+          </span>
+          <div id="suggestions"></div>
+        </div>
 
-        <form class="suggest-form"
-              hx-post="/topics/{{ topic.id }}/sources/search-paperstore"
-              hx-target="#paperstore-suggestions"
-              hx-swap="innerHTML"
-              hx-indicator="#paperstore-indicator">
-          <input type="text" name="query" class="intake-input suggest-input"
-                 placeholder="e.g. attention mechanism" required>
-          <button type="submit" class="btn btn-secondary btn-sm">Search Paperstore</button>
-        </form>
-        <span id="paperstore-indicator" class="htmx-indicator intake-spinner">
-          <span class="spinner"></span> Searching…
-        </span>
-        <div id="paperstore-suggestions"></div>
+        <div class="suggest-section">
+          <form class="suggest-form"
+                hx-post="/topics/{{ topic.id }}/sources/search-paperstore"
+                hx-target="#paperstore-suggestions"
+                hx-swap="innerHTML"
+                hx-indicator="#paperstore-indicator">
+            <input type="text" name="query" class="intake-input suggest-input"
+                   placeholder="e.g. attention mechanism" value="{{ topic.title }}" required>
+            <button type="submit" class="btn btn-secondary btn-sm">Search Paperstore</button>
+          </form>
+          <span id="paperstore-indicator" class="htmx-indicator intake-spinner">
+            <span class="spinner"></span> Searching…
+          </span>
+          <div id="paperstore-suggestions"></div>
+        </div>
       </div>
     </section>
 
   </div>{# /intake-columns #}
 </div>
 
-<script>
-function selectTab(btn, panelId) {
-  document.querySelectorAll('.source-tab').forEach(function(t) {
-    t.classList.remove('source-tab--active');
-    t.setAttribute('aria-selected', 'false');
-  });
-  document.querySelectorAll('.source-tab-panel').forEach(function(p) {
-    p.classList.add('source-tab-panel--hidden');
-  });
-  btn.classList.add('source-tab--active');
-  btn.setAttribute('aria-selected', 'true');
-  document.getElementById(panelId).classList.remove('source-tab-panel--hidden');
-}
-
-var _inflight = 0;
-
-function disableGenerate() {
-  _inflight++;
-  var btn = document.getElementById('generate-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Extracting…'; }
-}
-
-function enableGenerate() {
-  _inflight = Math.max(0, _inflight - 1);
-  if (_inflight === 0) {
-    var btn = document.getElementById('generate-btn');
-    if (btn) { btn.disabled = false; btn.textContent = 'Generate syllabus →'; }
-  }
-}
-
-function refreshGenerateBtn() {
-  // Re-enable after delete if no inflight requests
-  if (_inflight === 0) {
-    var btn = document.getElementById('generate-btn');
-    if (btn) { btn.disabled = false; }
-  }
-}
-
-function confirmGenerate() {
-  var cards = document.querySelectorAll('.source-cards-list .source-card:not(.source-card--error)');
-  if (cards.length === 0) { return true; }
-  return confirm('Skip added sources and generate from scratch?');
-}
-</script>
+<script src="/static/intake.js"></script>
 {% endblock %}

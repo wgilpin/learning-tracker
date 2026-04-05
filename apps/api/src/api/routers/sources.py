@@ -149,6 +149,8 @@ async def _extract(
         elif url.endswith(".pdf"):
             content = await fetch_pdf_text(url)
             pub_date = None
+        elif "wikipedia.org/wiki/" in url:
+            content, pub_date = await _fetch_wikipedia(url), None
         else:
             content, pub_date = await fetch_url_text_with_metadata(url)
         host = urlparse(url).netloc or url
@@ -168,6 +170,31 @@ async def _extract(
         return "Pasted text", text.strip(), None, None
 
     raise ValueError(f"Unsupported source type: {stype}")
+
+
+async def _fetch_wikipedia(url: str) -> str:
+    """Fetch a Wikipedia article via the wikipedia PyPI package (uses the API, avoids bot-blocking)."""
+    import asyncio
+
+    try:
+        import wikipedia  # type: ignore[import-untyped]
+    except ImportError:
+        raise ValueError("wikipedia package not installed; cannot fetch Wikipedia articles")
+
+    path = url.split("/wiki/", 1)[-1].split("#")[0]
+    title = path.replace("_", " ")
+
+    def _sync_fetch() -> str:
+        try:
+            page = wikipedia.page(title, auto_suggest=False)
+        except wikipedia.exceptions.DisambiguationError as e:
+            page = wikipedia.page(e.options[0], auto_suggest=False)
+        if not page.content:
+            raise ValueError(f"No content returned for Wikipedia page: {title!r}")
+        return page.content
+
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _sync_fetch)
 
 
 # ---------------------------------------------------------------------------
