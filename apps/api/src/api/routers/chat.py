@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
+from api.routers.topics import _extending_topics
 from api.templates_config import templates
 
 logger = logging.getLogger(__name__)
@@ -126,6 +127,23 @@ async def chat_stream(
             yield f"data: {data}\n\n"
 
         return StreamingResponse(_quiz_redirect(), media_type="text/event-stream")
+
+    if intent == "extend_syllabus":
+        if topic_id in _extending_topics:
+
+            async def _already_extending() -> AsyncIterator[str]:
+                msg = "I'm already extending the syllabus. Please wait for it to finish."
+                yield f"data: {json.dumps({'chunk': msg, 'done': False})}\n\n"
+                yield f"data: {json.dumps({'done': True})}\n\n"
+
+            return StreamingResponse(_already_extending(), media_type="text/event-stream")
+
+        async def _confirm_sse() -> AsyncIterator[str]:
+            msg = f'I can extend the syllabus based on: "{latest_user_message}". Shall I proceed?'
+            yield f"data: {json.dumps({'chunk': msg, 'done': False})}\n\n"
+            yield f"data: {json.dumps({'syllabus_extend_confirm': True, 'extension_prompt': latest_user_message, 'done': True})}\n\n"
+
+        return StreamingResponse(_confirm_sse(), media_type="text/event-stream")
 
     try:
         if intent == "socratic":

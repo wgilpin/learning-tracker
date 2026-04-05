@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 
@@ -9,7 +10,7 @@ from documentlm_core.db.session import get_session
 from documentlm_core.dependencies import get_current_user_id
 from documentlm_core.schemas import TopicCreate
 from documentlm_core.services.source import list_sources
-from documentlm_core.services.syllabus import list_syllabus_items
+from documentlm_core.services.syllabus import list_syllabus_items, list_top_level_items
 from documentlm_core.services.topic import create_topic, delete_topic, get_topic, list_topics
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -21,6 +22,8 @@ from api.templates_config import templates
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+_extending_topics: set[uuid.UUID] = set()
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -189,3 +192,95 @@ async def _run_academic_scout(topic_id: uuid.UUID, topic_title: str) -> None:
         except Exception:
             logger.exception("Academic Scout failed for topic_id=%s", topic_id)
             await session.rollback()
+
+
+async def _run_syllabus_extender(
+    topic_id: uuid.UUID,
+    topic_title: str,
+    extension_prompt: str,
+    existing_section_titles: list[str],
+) -> None:
+    """Background task: run Syllabus Extender and persist new items."""
+    from documentlm_core.agents.syllabus_architect import run_syllabus_extender
+    from documentlm_core.db.session import AsyncSessionFactory
+    from documentlm_core.schemas import SyllabusItemCreate
+
+    class _DBTools:
+        def __init__(self, session: AsyncSession) -> None:
+            self._session = session
+
+        async def create_syllabus_item(
+            self,
+            topic_id: uuid.UUID,
+            title: str,
+            description: str | None,
+            parent_id: uuid.UUID | None,
+        ) -> uuid.UUID:
+            from documentlm_core.services.syllabus import create_syllabus_item
+
+            item = await create_syllabus_item(
+                self._session,
+                SyllabusItemCreate(
+                    topic_id=topic_id,
+                    title=title,
+                    description=description,
+                    parent_id=parent_id,
+                ),
+            )
+            return item.id
+
+    async with AsyncSessionFactory() as session:
+        tools = _DBTools(session)
+        try:
+            await run_syllabus_extender(
+                topic_id, topic_title, extension_prompt, existing_section_titles, tools
+            )
+            await session.commit()
+            logger.info("Syllabus extension complete for topic_id=%s", topic_id)
+        except Exception:
+            logger.exception("Syllabus extension failed for topic_id=%s", topic_id)
+            await session.rollback()
+        finally:
+            _extending_topics.discard(topic_id)
+
+
+@router.post("/topics/{topic_id}/syllabus/extend")
+async def post_extend_syllabus(
+    topic_id: uuid.UUID,
+    extension_prompt: str = Form(...),
+    session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+) -> Response:
+    """Start a background syllabus extension task."""
+    topic = await get_topic(session, topic_id, user_id=user_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    if topic_id in _extending_topics:
+        return JSONResponse({"error": "already in progress"}, status_code=409)
+
+    existing = await list_top_level_items(session, topic_id)
+    existing_titles = [item.title for item in existing]
+
+    _extending_topics.add(topic_id)
+    asyncio.create_task(
+        _run_syllabus_extender(topic_id, topic.title, extension_prompt.strip(), existing_titles)
+    )
+
+    logger.info("Queued syllabus extension for topic_id=%s prompt=%r", topic_id, extension_prompt)
+    return JSONResponse({"status": "started"})
+
+
+@router.get("/topics/{topic_id}/extend-status")
+async def get_extend_status(
+    topic_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    user_id: uuid.UUID = Depends(get_current_user_id),
+) -> Response:
+    """Return the current extension status for a topic."""
+    topic = await get_topic(session, topic_id, user_id=user_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
+
+    status = "pending" if topic_id in _extending_topics else "complete"
+    return JSONResponse({"status": status})

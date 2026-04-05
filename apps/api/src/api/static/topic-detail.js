@@ -232,6 +232,47 @@
             var payload;
             try { payload = JSON.parse(line.slice(6)); } catch (ex) { return; }
 
+            if (payload.syllabus_extend_confirm) {
+              chatLoading.style.display = 'none';
+              var extPrompt = payload.extension_prompt;
+              var confirmDiv = document.createElement('div');
+              confirmDiv.className = 'chat-extend-confirm';
+              confirmDiv.innerHTML =
+                '<button class="btn-primary btn-sm chat-extend-ok">Confirm</button>' +
+                ' <button class="btn-secondary btn-sm chat-extend-cancel">Cancel</button>';
+
+              confirmDiv.querySelector('.chat-extend-ok').addEventListener('click', function () {
+                confirmDiv.remove();
+                var fd = new FormData();
+                fd.append('extension_prompt', extPrompt);
+                fetch('/topics/' + topicId + '/syllabus/extend', { method: 'POST', body: fd })
+                  .then(function () {
+                    appendMessage('assistant', 'Extending the syllabus\u2026');
+                    var pollInterval = setInterval(function () {
+                      fetch('/topics/' + topicId + '/extend-status')
+                        .then(function (r) { return r.json(); })
+                        .then(function (data) {
+                          if (data.status === 'complete') {
+                            clearInterval(pollInterval);
+                            htmx.ajax('GET', '/topics/' + topicId + '/syllabus', {
+                              target: '#syllabus-items-list',
+                              swap: 'innerHTML',
+                            });
+                          }
+                        });
+                    }, 3000);
+                  });
+              });
+
+              confirmDiv.querySelector('.chat-extend-cancel').addEventListener('click', function () {
+                confirmDiv.remove();
+              });
+
+              chatMessages.insertBefore(confirmDiv, chatLoading);
+              chatMessages.scrollTop = chatMessages.scrollHeight;
+              return;
+            }
+
             if (payload.quiz_redirect) {
               chatLoading.style.display = 'none';
               chatMessages.innerHTML = '';

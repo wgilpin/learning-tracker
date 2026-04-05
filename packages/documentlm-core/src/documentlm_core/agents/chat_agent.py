@@ -28,9 +28,11 @@ Classify the user's latest message into exactly one of these intents:
 - "quiz": user wants to take a multiple-choice quiz on a chapter
 - "socratic": user wants to be asked a question or led through Socratic dialogue
 - "expand": user wants a deeper explanation or more detail on a specific concept
+- "extend_syllabus": user wants to add new sections or topics to the syllabus
+  (e.g. "add a section on X", "extend the syllabus with Y", "include coverage of Z")
 - "qa": any other question or conversation about the topic material
 
-Respond with exactly one word: quiz, socratic, expand, or qa. Nothing else.
+Respond with exactly one word: quiz, socratic, expand, extend_syllabus, or qa. Nothing else.
 """
 
 _QA_INSTRUCTION = """You are a knowledgeable academic tutor answering questions about a topic.
@@ -148,13 +150,13 @@ def _build_source_context(chunk_pairs: list[tuple[str, uuid.UUID]]) -> str:
 
 async def classify_intent(
     message: str,
-) -> Literal["quiz", "socratic", "expand", "qa"]:
+) -> Literal["quiz", "socratic", "expand", "qa", "extend_syllabus"]:
     """Classify the user's intent from their latest message."""
     logger.debug("classify_intent: classifying message=%r", message[:80])
     raw = await _run_agent(_INTENT_INSTRUCTION, f"Message: {message}")
     intent = raw.strip().lower()
     logger.debug("classify_intent: raw=%r intent=%r", raw, intent)
-    if intent in ("quiz", "socratic", "expand", "qa"):
+    if intent in ("quiz", "socratic", "expand", "qa", "extend_syllabus"):
         return intent  # type: ignore[return-value]
     logger.warning("classify_intent: unrecognised intent %r, defaulting to qa", raw)
     return "qa"

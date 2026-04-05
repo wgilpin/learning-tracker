@@ -18,6 +18,32 @@ logger = logging.getLogger(__name__)
 
 _APP_NAME = "syllabus_architect"
 
+_EXTENDER_INSTRUCTION = """You are an academic curriculum designer extending an existing syllabus.
+Given the topic, an extension request, and existing section titles, generate ONLY NEW sections.
+
+Rules:
+- Do NOT reproduce or paraphrase any existing section title
+- Generate 1-3 new top-level sections that satisfy the extension request
+- Each section should have 3-6 child items
+- Children must reference their parent's title in the "parent" field
+- Titles should be specific and meaningful, not generic
+- Descriptions should be one sentence explaining what the item covers
+
+Respond with ONLY valid JSON in this exact format, no other text:
+[
+  {
+    "title": "New Section Title",
+    "description": "What this section covers.",
+    "parent": null
+  },
+  {
+    "title": "Child Topic Title",
+    "description": "What this child topic covers.",
+    "parent": "New Section Title"
+  }
+]
+"""
+
 _INSTRUCTION = """You are an academic curriculum designer.
 Given a topic, generate a structured syllabus as a JSON array.
 
@@ -176,6 +202,107 @@ async def run_syllabus_architect(
 
     logger.info(
         "Syllabus Architect complete: %d items created for topic_id=%s",
+        len(created_ids),
+        topic_id,
+    )
+    return created_ids
+
+
+async def run_syllabus_extender(
+    topic_id: uuid.UUID,
+    topic_title: str,
+    extension_prompt: str,
+    existing_section_titles: list[str],
+    tools: SyllabusToolsProtocol,
+) -> list[uuid.UUID]:
+    logger.info(
+        "Syllabus Extender starting for topic_id=%s prompt=%r existing=%d",
+        topic_id,
+        extension_prompt,
+        len(existing_section_titles),
+    )
+
+    agent = Agent(
+        name="syllabus_extender",
+        model=settings.gemini_model,
+        instruction=_EXTENDER_INSTRUCTION,
+    )
+
+    session_service = InMemorySessionService()
+    session = await session_service.create_session(app_name=_APP_NAME, user_id="system")
+    runner = Runner(agent=agent, app_name=_APP_NAME, session_service=session_service)
+
+    existing_block = "\n".join(f"- {t}" for t in existing_section_titles)
+    prompt = (
+        f"Extend the syllabus for: {topic_title}\n\n"
+        f"Extension request: {extension_prompt}\n\n"
+        f"Existing sections (do NOT duplicate):\n{existing_block}"
+    )
+
+    user_message = genai_types.Content(
+        role="user",
+        parts=[genai_types.Part(text=prompt)],
+    )
+
+    logger.info("Syllabus Extender calling LLM (model=%s)", settings.gemini_model)
+    reply_text: str | None = None
+    async for event in runner.run_async(
+        user_id="system",
+        session_id=session.id,
+        new_message=user_message,
+    ):
+        if event.is_final_response() and event.content and event.content.parts:
+            reply_text = event.content.parts[0].text
+            break
+
+    if not reply_text:
+        raise RuntimeError("Syllabus Extender returned no response")
+
+    logger.info("Syllabus Extender received LLM response — parsing JSON")
+
+    text = reply_text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1]
+        text = text.rsplit("```", 1)[0]
+
+    items = json.loads(text)
+    parents = [i for i in items if i.get("parent") is None]
+    children = [i for i in items if i.get("parent") is not None]
+    logger.info(
+        "Syllabus Extender parsed %d items (%d sections, %d sub-topics)",
+        len(items),
+        len(parents),
+        len(children),
+    )
+
+    title_to_id: dict[str, uuid.UUID] = {}
+    created_ids: list[uuid.UUID] = []
+
+    for item in items:
+        if item.get("parent") is None:
+            item_id = await tools.create_syllabus_item(
+                topic_id=topic_id,
+                title=item["title"],
+                description=item.get("description"),
+                parent_id=None,
+            )
+            title_to_id[item["title"]] = item_id
+            created_ids.append(item_id)
+
+    for item in items:
+        parent_title = item.get("parent")
+        if parent_title is not None:
+            parent_id = title_to_id.get(parent_title)
+            item_id = await tools.create_syllabus_item(
+                topic_id=topic_id,
+                title=item["title"],
+                description=item.get("description"),
+                parent_id=parent_id,
+            )
+            created_ids.append(item_id)
+
+    logger.info(
+        "Syllabus Extender complete: %d items created for topic_id=%s",
         len(created_ids),
         topic_id,
     )
