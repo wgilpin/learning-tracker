@@ -137,6 +137,9 @@
     var chapterEl = document.querySelector('.chapter-inline[data-chapter-id]');
     if (chapterEl) {
       chatPanel.dataset.chapterId = chapterEl.dataset.chapterId;
+      chatPanel.style.display = '';
+    } else {
+      chatPanel.style.display = 'none';
     }
     resetChat();
     if (chapterEl && chapterEl.dataset.hasQuiz) {
