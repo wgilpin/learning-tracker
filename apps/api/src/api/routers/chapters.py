@@ -5,12 +5,13 @@ from __future__ import annotations
 import logging
 import uuid
 
-from api.templates_config import templates
 from documentlm_core.db.session import get_session
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
+
+from api.templates_config import templates
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,9 @@ async def get_or_trigger_chapter(
     from documentlm_core.services.chapter import get_chapter
     from sqlalchemy import select
 
-    item = (await session.execute(select(SyllabusItem).where(SyllabusItem.id == item_id))).scalar_one_or_none()
+    item = (
+        await session.execute(select(SyllabusItem).where(SyllabusItem.id == item_id))
+    ).scalar_one_or_none()
     if item is None:
         raise HTTPException(status_code=404, detail="SyllabusItem not found")
 
@@ -40,9 +43,20 @@ async def get_or_trigger_chapter(
     )).scalar_one_or_none()
 
     if existing is not None:
+        from documentlm_core.services.illustration import get_illustrations
         chapter = await get_chapter(session, existing.id)
         has_quiz = existing.quiz_questions is not None
-        return templates.TemplateResponse(request, "chapters/_inline.html", {"chapter": chapter, "item": item, "has_quiz": has_quiz})
+        illustrations = await get_illustrations(session, existing.id)
+        return templates.TemplateResponse(
+            request,
+            "chapters/_inline.html",
+            {
+                "chapter": chapter,
+                "item": item,
+                "has_quiz": has_quiz,
+                "illustrations": illustrations,
+            },
+        )
 
     if item_id in _failed_items:
         return templates.TemplateResponse(request, "chapters/_failed.html", {"item_id": item_id})
@@ -102,14 +116,49 @@ async def get_chapter(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     from documentlm_core.services.chapter import get_chapter as _get_chapter
+    from documentlm_core.services.illustration import get_illustrations
 
     chapter = await _get_chapter(session, chapter_id)
     if chapter is None:
         raise HTTPException(status_code=404, detail="Chapter not found")
 
-    if request.headers.get("HX-Request"):
-        return templates.TemplateResponse(request, "chapters/detail.html", {"chapter": chapter})
-    return templates.TemplateResponse(request, "chapters/detail.html", {"chapter": chapter})
+    illustrations = await get_illustrations(session, chapter_id)
+    return templates.TemplateResponse(
+        request,
+        "chapters/detail.html",
+        {"chapter": chapter, "illustrations": illustrations},
+    )
+
+
+@router.get("/chapters/{chapter_id}/illustrations/{paragraph_index}")
+async def get_chapter_illustration(
+    chapter_id: uuid.UUID,
+    paragraph_index: int,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    from documentlm_core.db.models import ChapterIllustration
+    from sqlalchemy import select
+
+    result = await session.execute(
+        select(ChapterIllustration).where(
+            ChapterIllustration.chapter_id == chapter_id,
+            ChapterIllustration.paragraph_index == paragraph_index,
+        )
+    )
+    illustration = result.scalar_one_or_none()
+    if illustration is None:
+        raise HTTPException(status_code=404, detail="Illustration not found")
+
+    logger.info(
+        "Illustration served chapter_id=%s paragraph=%d bytes=%d",
+        chapter_id,
+        paragraph_index,
+        len(illustration.image_data),
+    )
+    return Response(
+        content=illustration.image_data,
+        media_type=illustration.image_mime_type,
+    )
 
 
 @router.get("/chapters/{chapter_id}/status")
@@ -157,7 +206,9 @@ async def post_comment(
     await session.commit()
     asyncio.create_task(_respond_to_comment_bg(comment.id, chapter_id))
 
-    response = templates.TemplateResponse(request, "chapters/_margin_comment.html", {"comment": comment})
+    response = templates.TemplateResponse(
+        request, "chapters/_margin_comment.html", {"comment": comment}
+    )
     response.headers["HX-Retarget"] = f"#comments-{paragraph_anchor}"
     response.headers["HX-Reswap"] = "beforeend"
     return response
@@ -210,15 +261,16 @@ async def resolve_comment(
     comment_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
 ) -> Response:
+    from documentlm_core.db.models import MarginComment as _MC
     from documentlm_core.db.models import SyllabusItem
     from documentlm_core.services.chapter import get_chapter
     from documentlm_core.services.margin_comment import resolve_and_apply
     from sqlalchemy import select
-
-    from documentlm_core.db.models import MarginComment as _MC
     from sqlalchemy import select as _sel
 
-    comment_row = (await session.execute(_sel(_MC).where(_MC.id == comment_id))).scalar_one_or_none()
+    comment_row = (
+        await session.execute(_sel(_MC).where(_MC.id == comment_id))
+    ).scalar_one_or_none()
     if comment_row is None:
         raise HTTPException(status_code=404, detail="Comment not found")
 
@@ -256,6 +308,7 @@ async def _draft_chapter_bg(
     from documentlm_core.agents.chapter_scribe import run_chapter_scribe
     from documentlm_core.db.session import AsyncSessionFactory
     from documentlm_core.services.chapter import create_chapter
+    from documentlm_core.services.illustration import run_illustration_pipeline
 
     try:
         async with AsyncSessionFactory() as session:
@@ -263,7 +316,9 @@ async def _draft_chapter_bg(
                 draft = await run_chapter_scribe(
                     item_id, item_title, topic_id, session, item_description=item_description
                 )
-                await create_chapter(session, item_id, topic_id, draft.content, draft.cited_source_ids)
+                chapter = await create_chapter(
+                    session, item_id, topic_id, draft.content, draft.cited_source_ids
+                )
                 await session.commit()
                 logger.info(
                     "Chapter drafted for item_id=%s citations=%d",
@@ -274,6 +329,21 @@ async def _draft_chapter_bg(
                 logger.exception("Chapter drafting failed for item_id=%s", item_id)
                 await session.rollback()
                 _failed_items.add(item_id)
+                return
+
+        # Run illustration pipeline in a fresh session after chapter is committed.
+        # Failures here must never affect chapter availability.
+        async with AsyncSessionFactory() as ill_session:
+            try:
+                await run_illustration_pipeline(chapter.id, draft.content, ill_session)
+                await ill_session.commit()
+            except Exception:
+                logger.exception(
+                    "Illustration pipeline failed for chapter_id=%s item_id=%s",
+                    chapter.id,
+                    item_id,
+                )
+                await ill_session.rollback()
     finally:
         _drafting_items.discard(item_id)
 

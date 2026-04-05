@@ -9,6 +9,13 @@
     {% if paragraph.strip() %}
     <div class="chapter-paragraph" id="para-{{ loop.index }}">
       {{ paragraph | md | safe }}
+      {% if illustrations and loop.index in illustrations %}
+      <img
+        src="/chapters/{{ chapter.id }}/illustrations/{{ loop.index }}"
+        alt="{{ illustrations[loop.index].image_description }}"
+        class="chapter-illustration"
+      />
+      {% endif %}
       <div class="margin-comments" id="comments-para-{{ loop.index }}">
         {% for comment in chapter.margin_comments if comment.paragraph_anchor == 'para-' ~ loop.index %}
         {% include "chapters/_margin_comment.html" %}

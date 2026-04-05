@@ -1,6 +1,6 @@
 # learning-tracker Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-04-04
+Auto-generated from all feature plans. Last updated: 2026-04-05
 
 ## Active Technologies
 - Python 3.12 via uv workspaces + FastAPI, SQLAlchemy 2 async, Alembic, Pydantic v2, Google ADK, ChromaDB (new), nlp_utils (local) (003-source-extraction-pipeline)
@@ -11,6 +11,8 @@ Auto-generated from all feature plans. Last updated: 2026-04-04
 - PostgreSQL 16 (Docker) — existing `syllabus_items` table (005-syllabus-chapter-management)
 - Python 3.12+ managed via `uv` workspaces (monorepo) + FastAPI, HTMX/Jinja2, Google ADK (`google-adk`), SQLAlchemy 2 async, Pydantic v2, ChromaDB (007-chat-agents-panel)
 - PostgreSQL 16 (Docker) — `atomic_chapters` table extended with 4 new nullable columns (007-chat-agents-panel)
+- Python 3.12+ (uv workspaces monorepo) + FastAPI, SQLAlchemy 2 async, Alembic, Pydantic v2, Google ADK (`google-adk`), `google.genai` (transitive via ADK) (008-lesson-illustrations)
+- PostgreSQL 16 (Docker) — new `chapter_illustrations` table with `bytea` image column (008-lesson-illustrations)
 
 - Python 3.12 (managed via `uv` workspaces) + FastAPI, HTMX, Jinja2, SQLAlchemy 2.x (async), Alembic, Pydantic v2, (001-academic-learning-tracker)
 
@@ -30,10 +32,9 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.12 (managed via `uv` workspaces): Follow standard conventions
 
 ## Recent Changes
+- 008-lesson-illustrations: Added Python 3.12+ (uv workspaces monorepo) + FastAPI, SQLAlchemy 2 async, Alembic, Pydantic v2, Google ADK (`google-adk`), `google.genai` (transitive via ADK)
 - 007-chat-agents-panel: Added Python 3.12+ managed via `uv` workspaces (monorepo) + FastAPI, HTMX/Jinja2, Google ADK (`google-adk`), SQLAlchemy 2 async, Pydantic v2, ChromaDB
 - 005-syllabus-chapter-management: Added Python 3.12 via `uv` workspaces + FastAPI, SQLAlchemy 2 async, Alembic, Pydantic v2, Google Gemini (via `google-generativeai`), HTMX
-- 004-multi-user-isolation: Added Python 3.12 (uv workspaces) + FastAPI, SQLAlchemy 2 async, Alembic, Pydantic v2, HTMX, `bcrypt>=4.1` (new), `starlette.middleware.sessions` (already present via Starlette)
-- 003-source-extraction-pipeline: Added Python 3.12 via uv workspaces + FastAPI, SQLAlchemy 2 async, Alembic, Pydantic v2, Google ADK, ChromaDB (new), nlp_utils (local)
 
 
 <!-- MANUAL ADDITIONS START -->
