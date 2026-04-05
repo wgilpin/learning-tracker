@@ -111,6 +111,38 @@
 
 // Chat panel: SSE streaming, message history, quiz handling
 (function () {
+  // Teach marked to recognise $...$ and $$...$$ so KaTeX can render them
+  marked.use({
+    extensions: [
+      {
+        name: 'mathBlock',
+        level: 'block',
+        start: function (src) { return src.indexOf('$$'); },
+        tokenizer: function (src) {
+          var m = /^\$\$([\s\S]+?)\$\$/.exec(src);
+          if (m) return { type: 'mathBlock', raw: m[0], text: m[1].trim() };
+        },
+        renderer: function (token) {
+          var t = token.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          return '<div class="math block">' + t + '</div>';
+        },
+      },
+      {
+        name: 'mathInline',
+        level: 'inline',
+        start: function (src) { return src.indexOf('$'); },
+        tokenizer: function (src) {
+          var m = /^\$([^$\n]+?)\$/.exec(src);
+          if (m) return { type: 'mathInline', raw: m[0], text: m[1] };
+        },
+        renderer: function (token) {
+          var t = token.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          return '<span class="math inline">' + t + '</span>';
+        },
+      },
+    ],
+  });
+
   var topicId = document.getElementById('chat-panel').dataset.topicId;
   var chatPanel = document.getElementById('chat-panel');
   var chatForm = document.getElementById('chat-form');
@@ -313,6 +345,7 @@
             }
             assistantContent += payload.chunk;
             assistantEl.innerHTML = marked.parse(assistantContent);
+            renderMath(assistantEl);
           });
           read();
         }).catch(function () {
