@@ -7,7 +7,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-03-24T09:40:20.51605Z"
+exclude-newer = "2026-03-29T13:02:43.319088Z"
 exclude-newer-span = "P7D"
 
 [manifest]
@@ -2263,6 +2263,7 @@ dependencies = [
     { name = "markdownify" },
     { name = "nltk" },
     { name = "pypdf" },
+    { name = "python-dateutil" },
     { name = "youtube-transcript-api" },
     { name = "yt-dlp" },
 ]
@@ -2276,6 +2277,7 @@ requires-dist = [
     { name = "markdownify", specifier = ">=0.12" },
     { name = "nltk", specifier = ">=3.8" },
     { name = "pypdf", specifier = ">=4.0" },
+    { name = "python-dateutil", specifier = ">=2.8" },
     { name = "youtube-transcript-api", specifier = ">=0.6" },
     { name = "yt-dlp", specifier = ">=2024.1" },
 ]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import uuid
+from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -38,6 +39,7 @@ async def add_source_for_user(
     source_type: str = SourceType.PDF_UPLOAD,
     url: str | None = None,
     authors: list[str] | None = None,
+    publication_date: date | None = None,
     is_primary: bool = True,
 ) -> tuple[Source, UserSourceRef, bool]:
     """Find-or-create a Source by content_hash, then create a UserSourceRef.
@@ -62,6 +64,7 @@ async def add_source_for_user(
             content_hash=content_hash,
             url=url,
             authors=authors or [],
+            publication_date=publication_date,
             verification_status=SourceStatus.VERIFIED.value,
         )
         session.add(existing)

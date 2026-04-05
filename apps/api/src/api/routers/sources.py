@@ -84,7 +84,7 @@ async def post_extract_source(
         ) from exc
 
     try:
-        derived_title, content, source_url = await _extract(stype, file, url, text)
+        derived_title, content, source_url, pub_date = await _extract(stype, file, url, text)
     except (ValueError, Exception) as exc:
         logger.exception(
             "Source extraction failed type=%s topic_id=%s", source_type, topic_id
@@ -106,6 +106,7 @@ async def post_extract_source(
         content_hash=content_hash,
         source_type=stype.value,
         url=source_url,
+        publication_date=pub_date,
     )
     await session.commit()
 
@@ -121,8 +122,10 @@ async def _extract(
     file: UploadFile | None,
     url: str | None,
     text: str | None,
-) -> tuple[str, str, str | None]:
-    """Return (title, content, url) for the given source type."""
+) -> tuple[str, str, str | None, "date | None"]:
+    """Return (title, content, url, publication_date) for the given source type."""
+    from datetime import date
+
     if stype == SourceType.PDF_UPLOAD:
         if file is None:
             raise ValueError("A file is required for PDF upload")
@@ -131,23 +134,25 @@ async def _extract(
         data = await file.read()
         content = extract_pdf_text_from_bytes(data)
         title = (file.filename or "Uploaded PDF").removesuffix(".pdf")
-        return title, content, None
+        return title, content, None, None
 
     if stype == SourceType.URL_SCRAPE:
         if not url:
             raise ValueError("A URL is required for URL scraping")
         from urllib.parse import urlparse
 
-        from nlp_utils import fetch_arxiv_text, fetch_pdf_text, fetch_url_text
+        from nlp_utils import fetch_arxiv_text, fetch_pdf_text, fetch_url_text_with_metadata
 
         if "arxiv.org" in url:
             content = await fetch_arxiv_text(url)
+            pub_date = None
         elif url.endswith(".pdf"):
             content = await fetch_pdf_text(url)
+            pub_date = None
         else:
-            content = await fetch_url_text(url)
+            content, pub_date = await fetch_url_text_with_metadata(url)
         host = urlparse(url).netloc or url
-        return host, content, url
+        return host, content, url, pub_date
 
     if stype == SourceType.YOUTUBE_TRANSCRIPT:
         if not url:
@@ -155,12 +160,12 @@ async def _extract(
         from nlp_utils import fetch_youtube_transcript
 
         title, content = await fetch_youtube_transcript(url)
-        return title, content, url
+        return title, content, url, None
 
     if stype == SourceType.RAW_TEXT:
         if not text or not text.strip():
             raise ValueError("Text content is required for raw text source")
-        return "Pasted text", text.strip(), None
+        return "Pasted text", text.strip(), None, None
 
     raise ValueError(f"Unsupported source type: {stype}")
 

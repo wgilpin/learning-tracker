@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 _IMAGE_PROMPT_PREFIX = (
     "For use in an academic textbook, create the following as a simple image only. "
-    "Use a white background. "
+    "Use a white background. Use colours and shading to make the image clear and visually engaging "
+    "when appropriate for clarity. "
     "Only include descriptive text if the image cannot be understood without it, as "
     "the image will be displayed alongside an explanatory paragraph. "
     "The image will be displayed at a maximum width of 600px. "
