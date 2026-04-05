@@ -21,6 +21,9 @@ async def create_chapter(
     topic_id: uuid.UUID,
     content: str,
     source_ids: list[uuid.UUID],
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+    image_count: int | None = None,
 ) -> ChapterRead:
     """Persist a drafted chapter. Raises ValueError if parent chapter not yet drafted."""
     result = await session.execute(select(SyllabusItem).where(SyllabusItem.id == item_id))
@@ -45,6 +48,9 @@ async def create_chapter(
         content=content,
         created_at=now,
         updated_at=now,
+        generation_input_tokens=input_tokens,
+        generation_output_tokens=output_tokens,
+        generation_image_count=image_count,
     )
     session.add(chapter)
     await session.flush()
@@ -122,4 +128,7 @@ async def _read_chapter(session: AsyncSession, chapter: AtomicChapter) -> Chapte
         margin_comments=comment_reads,
         created_at=chapter.created_at,
         updated_at=chapter.updated_at,
+        generation_input_tokens=chapter.generation_input_tokens,
+        generation_output_tokens=chapter.generation_output_tokens,
+        generation_image_count=chapter.generation_image_count,
     )

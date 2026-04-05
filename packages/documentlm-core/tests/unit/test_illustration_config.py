@@ -79,6 +79,8 @@ class TestIllustrationModelConfig:
         content = "## Topic\n\nSome text that needs an image."
         mock_session = AsyncMock()
 
+        from documentlm_core.schemas import TokenUsage
+
         assessment = ParagraphAssessment(
             requires_image=True, image_description="A chart of data"
         )
@@ -92,7 +94,7 @@ class TestIllustrationModelConfig:
         with (
             patch(
                 "documentlm_core.services.illustration.assess_paragraph",
-                new=AsyncMock(return_value=assessment),
+                new=AsyncMock(return_value=(assessment, TokenUsage())),
             ),
             patch(
                 "documentlm_core.services.illustration.generate_image",

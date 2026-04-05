@@ -271,6 +271,11 @@ class AtomicChapter(Base):
         DateTime(timezone=True), nullable=True, default=None
     )
 
+    # Generation cost tracking (nullable — None on pre-existing or failed chapters)
+    generation_input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    generation_output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    generation_image_count: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+
     topic: Mapped[Topic] = relationship("Topic", back_populates="chapters")
     syllabus_item: Mapped[SyllabusItem] = relationship("SyllabusItem", back_populates="chapter")
     margin_comments: Mapped[list[MarginComment]] = relationship(

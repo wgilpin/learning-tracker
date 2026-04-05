@@ -5,10 +5,10 @@ All ADK Runner calls are mocked — no live LLM calls.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from documentlm_core.schemas import ParagraphAssessment
+from documentlm_core.schemas import ParagraphAssessment, TokenUsage
 
 
 class TestAssessParagraph:
@@ -19,9 +19,9 @@ class TestAssessParagraph:
         raw_json = '{"requires_image": true, "image_description": "A diagram of a neural network"}'
         with patch(
             "documentlm_core.agents.illustration_assessor._run_assessor",
-            new=AsyncMock(return_value=raw_json),
+            new=AsyncMock(return_value=(raw_json, TokenUsage())),
         ):
-            result = await assess_paragraph("Neural Networks", "A neural network is...")
+            result, _usage = await assess_paragraph("Neural Networks", "A neural network is...")
         assert isinstance(result, ParagraphAssessment)
         assert result.requires_image is True
         assert result.image_description == "A diagram of a neural network"
@@ -33,9 +33,9 @@ class TestAssessParagraph:
         raw_json = '{"requires_image": false, "image_description": ""}'
         with patch(
             "documentlm_core.agents.illustration_assessor._run_assessor",
-            new=AsyncMock(return_value=raw_json),
+            new=AsyncMock(return_value=(raw_json, TokenUsage())),
         ):
-            result = await assess_paragraph("References", "[1] Smith et al. 2020...")
+            result, _usage = await assess_paragraph("References", "[1] Smith et al. 2020...")
         assert result.requires_image is False
         assert result.image_description == ""
 
@@ -46,9 +46,9 @@ class TestAssessParagraph:
         fenced = '```json\n{"requires_image": true, "image_description": "A chart"}\n```'
         with patch(
             "documentlm_core.agents.illustration_assessor._run_assessor",
-            new=AsyncMock(return_value=fenced),
+            new=AsyncMock(return_value=(fenced, TokenUsage())),
         ):
-            result = await assess_paragraph("Charts", "Here is chart data...")
+            result, _usage = await assess_paragraph("Charts", "Here is chart data...")
         assert result.requires_image is True
         assert result.image_description == "A chart"
 
@@ -58,9 +58,9 @@ class TestAssessParagraph:
 
         with patch(
             "documentlm_core.agents.illustration_assessor._run_assessor",
-            new=AsyncMock(return_value="not valid json {{{"),
+            new=AsyncMock(return_value=("not valid json {{{", TokenUsage())),
         ):
-            result = await assess_paragraph("Title", "Body text")
+            result, _usage = await assess_paragraph("Title", "Body text")
         assert result.requires_image is False
         assert result.image_description == ""
 
@@ -70,9 +70,9 @@ class TestAssessParagraph:
 
         with patch(
             "documentlm_core.agents.illustration_assessor._run_assessor",
-            new=AsyncMock(return_value=""),
+            new=AsyncMock(return_value=("", TokenUsage())),
         ):
-            result = await assess_paragraph("", "")
+            result, _usage = await assess_paragraph("", "")
         assert result.requires_image is False
         assert result.image_description == ""
 
@@ -84,6 +84,6 @@ class TestAssessParagraph:
             "documentlm_core.agents.illustration_assessor._run_assessor",
             new=AsyncMock(side_effect=RuntimeError("LLM unavailable")),
         ):
-            result = await assess_paragraph("Topic", "Text")
+            result, _usage = await assess_paragraph("Topic", "Text")
         assert result.requires_image is False
         assert result.image_description == ""

@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     illustration_model: str = Field(
         default="gemini-3.1-flash-image-preview", alias="ILLUSTRATION_MODEL"
     )
+    # Pricing for cost display (USD per million tokens / per image)
+    # Calibrated for gemini-3-flash-preview (text) and gemini-3.1-flash-image-preview (images)
+    cost_input_per_m: float = Field(default=0.50, alias="COST_INPUT_PER_M")
+    cost_output_per_m: float = Field(default=3.00, alias="COST_OUTPUT_PER_M")
+    # gemini-3.1-flash-image-preview charges per output tokens ($60/M ≈ $0.045–$0.151/image)
+    cost_per_image: float = Field(default=0.10, alias="COST_PER_IMAGE")
 
     model_config = {
         "env_file": ".env",

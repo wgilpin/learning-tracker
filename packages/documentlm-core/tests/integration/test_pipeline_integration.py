@@ -176,9 +176,10 @@ class TestChapterScribeRetrieval:
 
         captured_prompts: list[str] = []
 
-        async def _fake_run_agent(instruction: str, prompt: str) -> str:
+        async def _fake_run_agent(instruction: str, prompt: str):
+            from documentlm_core.schemas import TokenUsage
             captured_prompts.append(prompt)
-            return "Generated chapter content."
+            return "Generated chapter content.", TokenUsage()
 
         with (
             patch(
@@ -222,9 +223,10 @@ class TestChapterScribeRetrieval:
 
         captured_prompts: list[str] = []
 
-        async def _fake_run_agent(instruction: str, prompt: str) -> str:
+        async def _fake_run_agent(instruction: str, prompt: str):
+            from documentlm_core.schemas import TokenUsage
             captured_prompts.append(prompt)
-            return "Generated chapter content."
+            return "Generated chapter content.", TokenUsage()
 
         with (
             patch(
@@ -284,9 +286,10 @@ class TestChapterScribeRetrieval:
 
         captured_prompts: list[str] = []
 
-        async def _fake_run_agent(instruction: str, prompt: str) -> str:
+        async def _fake_run_agent(instruction: str, prompt: str):
+            from documentlm_core.schemas import TokenUsage
             captured_prompts.append(prompt)
-            return "Done."
+            return "Done.", TokenUsage()
 
         with (
             patch(
@@ -334,8 +337,9 @@ class TestChapterScribeRetrieval:
 
         ephemeral = chromadb.EphemeralClient()  # empty — no chunks
 
-        async def _fake_run_agent(instruction: str, prompt: str) -> str:
-            return "Chapter content."
+        async def _fake_run_agent(instruction: str, prompt: str):
+            from documentlm_core.schemas import TokenUsage
+            return "Chapter content.", TokenUsage()
 
         scout_calls: list[tuple] = []
 
@@ -407,8 +411,9 @@ class TestChapterScribeRetrieval:
             scout_called = True
             return []
 
-        async def _fake_run_agent(instruction: str, prompt: str) -> str:
-            return "Chapter content."
+        async def _fake_run_agent(instruction: str, prompt: str):
+            from documentlm_core.schemas import TokenUsage
+            return "Chapter content.", TokenUsage()
 
         with (
             patch(
@@ -476,8 +481,9 @@ class TestChapterScribeRetrieval:
             scout_calls.append((topic_id, query_text))
             return []
 
-        async def _fake_run_agent(instruction: str, prompt: str) -> str:
-            return "Chapter content."
+        async def _fake_run_agent(instruction: str, prompt: str):
+            from documentlm_core.schemas import TokenUsage
+            return "Chapter content.", TokenUsage()
 
         with (
             patch(

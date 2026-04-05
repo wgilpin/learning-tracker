@@ -14,7 +14,7 @@ from documentlm_core.agents.illustration_assessor import assess_paragraph
 from documentlm_core.agents.image_generator import generate_image
 from documentlm_core.config import settings
 from documentlm_core.db.models import ChapterIllustration
-from documentlm_core.schemas import IllustrationRead
+from documentlm_core.schemas import IllustrationRead, TokenUsage
 
 logger = logging.getLogger(__name__)
 
@@ -69,14 +69,14 @@ async def _process_section(
     title: str,
     body: str,
     model: str,
-) -> tuple[int, bytes, str, str, str] | None:
+) -> tuple[int, bytes, str, str, str, TokenUsage] | None:
     """Assess and generate an image for one section.
 
-    Returns (para_index, image_bytes, mime_type, description, caption) or None if the
-    section doesn't need an image or any step fails. Never raises.
+    Returns (para_index, image_bytes, mime_type, description, caption, assess_usage)
+    or None if the section doesn't need an image or any step fails. Never raises.
     """
     try:
-        assessment = await assess_paragraph(title, body)
+        assessment, assess_usage = await assess_paragraph(title, body)
     except Exception:
         logger.exception(
             "IllustrationPipeline: assessment failed chapter_id=%s section=%d %r",
@@ -115,14 +115,21 @@ async def _process_section(
         return None
 
     image_bytes, mime_type = result
-    return (para_index, image_bytes, mime_type, assessment.image_description, assessment.image_caption)
+    return (
+        para_index,
+        image_bytes,
+        mime_type,
+        assessment.image_description,
+        assessment.image_caption,
+        assess_usage,
+    )
 
 
 async def run_illustration_pipeline(
     chapter_id: uuid.UUID,
     content: str,
     session: AsyncSession,
-) -> None:
+) -> tuple[int, TokenUsage]:
     """Assess each ## section and generate + persist illustrations where needed.
 
     Splits chapter content into ## heading sections. All sections are assessed
@@ -132,10 +139,8 @@ async def run_illustration_pipeline(
     Per-section failures are logged and skipped — the pipeline always runs to
     completion and never raises.
 
-    Args:
-        chapter_id: UUID of the AtomicChapter to illustrate.
-        content: Full markdown chapter content.
-        session: Active async SQLAlchemy session for DB writes.
+    Returns:
+        (images_generated, cumulative_assessor_token_usage)
     """
     sections = _split_into_sections(content)
     total = len(sections)
@@ -166,10 +171,12 @@ async def run_illustration_pipeline(
         )
 
     generated = 0
+    total_assess_usage = TokenUsage()
     for result in capped:
         if result is None:
             continue
-        para_index, image_bytes, mime_type, description, caption = result
+        para_index, image_bytes, mime_type, description, caption, assess_usage = result
+        total_assess_usage = total_assess_usage + assess_usage
         illustration = ChapterIllustration(
             id=uuid.uuid4(),
             chapter_id=chapter_id,
@@ -205,6 +212,7 @@ async def run_illustration_pipeline(
         total,
         generated,
     )
+    return generated, total_assess_usage
 
 
 async def get_illustrations(

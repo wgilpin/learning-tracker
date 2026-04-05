@@ -7,10 +7,10 @@ DB session is mocked — persistence is tested in integration tests.
 from __future__ import annotations
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from documentlm_core.schemas import ParagraphAssessment
+from documentlm_core.schemas import ParagraphAssessment, TokenUsage
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +108,10 @@ _TWO_SECTION_CONTENT = (
 )
 
 
+def _assessment(requires_image: bool, description: str = "") -> tuple[ParagraphAssessment, TokenUsage]:
+    return ParagraphAssessment(requires_image=requires_image, image_description=description), TokenUsage()
+
+
 class TestRunIllustrationPipeline:
     @pytest.mark.asyncio
     async def test_generates_image_for_section_requiring_one(self) -> None:
@@ -117,14 +121,10 @@ class TestRunIllustrationPipeline:
         content = "## Neural Networks\nA neural network explanation."
         mock_session = AsyncMock()
 
-        assessment = ParagraphAssessment(
-            requires_image=True, image_description="A neural network diagram"
-        )
-
         with (
             patch(
                 "documentlm_core.services.illustration.assess_paragraph",
-                new=AsyncMock(return_value=assessment),
+                new=AsyncMock(return_value=_assessment(True, "A neural network diagram")),
             ),
             patch(
                 "documentlm_core.services.illustration.generate_image",
@@ -143,12 +143,10 @@ class TestRunIllustrationPipeline:
         content = "## References\n\n[1] Smith et al."
         mock_session = AsyncMock()
 
-        assessment = ParagraphAssessment(requires_image=False, image_description="")
-
         with (
             patch(
                 "documentlm_core.services.illustration.assess_paragraph",
-                new=AsyncMock(return_value=assessment),
+                new=AsyncMock(return_value=_assessment(False)),
             ),
             patch(
                 "documentlm_core.services.illustration.generate_image",
@@ -167,14 +165,10 @@ class TestRunIllustrationPipeline:
         content = "## Topic\n\nSome content."
         mock_session = AsyncMock()
 
-        assessment = ParagraphAssessment(
-            requires_image=True, image_description="A diagram"
-        )
-
         with (
             patch(
                 "documentlm_core.services.illustration.assess_paragraph",
-                new=AsyncMock(return_value=assessment),
+                new=AsyncMock(return_value=_assessment(True, "A diagram")),
             ),
             patch(
                 "documentlm_core.services.illustration.generate_image",
@@ -192,15 +186,10 @@ class TestRunIllustrationPipeline:
         chapter_id = uuid.uuid4()
         mock_session = AsyncMock()
 
-        needs_image = ParagraphAssessment(
-            requires_image=True, image_description="A diagram"
-        )
-        no_image = ParagraphAssessment(requires_image=False, image_description="")
-
         with (
             patch(
                 "documentlm_core.services.illustration.assess_paragraph",
-                new=AsyncMock(side_effect=[needs_image, no_image]),
+                new=AsyncMock(side_effect=[_assessment(True, "A diagram"), _assessment(False)]),
             ),
             patch(
                 "documentlm_core.services.illustration.generate_image",
@@ -219,14 +208,10 @@ class TestRunIllustrationPipeline:
         chapter_id = uuid.uuid4()
         mock_session = AsyncMock()
 
-        good_assessment = ParagraphAssessment(
-            requires_image=True, image_description="A chart"
-        )
-
         with (
             patch(
                 "documentlm_core.services.illustration.assess_paragraph",
-                new=AsyncMock(side_effect=[RuntimeError("LLM down"), good_assessment]),
+                new=AsyncMock(side_effect=[RuntimeError("LLM down"), _assessment(True, "A chart")]),
             ),
             patch(
                 "documentlm_core.services.illustration.generate_image",
@@ -246,14 +231,10 @@ class TestRunIllustrationPipeline:
         chapter_id = uuid.uuid4()
         mock_session = AsyncMock()
 
-        needs_image = ParagraphAssessment(
-            requires_image=True, image_description="A chart"
-        )
-
         with (
             patch(
                 "documentlm_core.services.illustration.assess_paragraph",
-                new=AsyncMock(return_value=needs_image),
+                new=AsyncMock(return_value=_assessment(True, "A chart")),
             ),
             patch(
                 "documentlm_core.services.illustration.generate_image",
@@ -290,9 +271,7 @@ class TestRunIllustrationPipeline:
 
         with patch(
             "documentlm_core.services.illustration.assess_paragraph",
-            new=AsyncMock(return_value=ParagraphAssessment(
-                requires_image=True, image_description="A diagram"
-            )),
+            new=AsyncMock(return_value=_assessment(True, "A diagram")),
         ) as mock_assess:
             await run_illustration_pipeline(chapter_id, content, mock_session)
 

@@ -32,3 +32,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/documentlm_core"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+env = [
+    "TEST_DATABASE_URL=postgresql+asyncpg://tracker:tracker@localhost:5434/tracker_test",
+]

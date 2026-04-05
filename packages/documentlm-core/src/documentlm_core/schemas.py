@@ -1,12 +1,30 @@
 from __future__ import annotations
 
 import uuid as _uuid_module
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import StrEnum
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, model_validator
+
+# ---------------------------------------------------------------------------
+# Token usage
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class TokenUsage:
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+    def __add__(self, other: TokenUsage) -> TokenUsage:
+        return TokenUsage(
+            input_tokens=self.input_tokens + other.input_tokens,
+            output_tokens=self.output_tokens + other.output_tokens,
+        )
+
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -164,6 +182,9 @@ class ChapterRead(BaseModel):
     margin_comments: list[MarginCommentRead] = []
     created_at: datetime
     updated_at: datetime
+    generation_input_tokens: int | None = None
+    generation_output_tokens: int | None = None
+    generation_image_count: int | None = None
 
     model_config = {"from_attributes": True}
 

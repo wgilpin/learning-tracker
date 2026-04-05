@@ -10,7 +10,7 @@ from sqlalchemy.pool import NullPool
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    "postgresql+asyncpg://tracker:tracker@localhost:5432/tracker",
+    "postgresql+asyncpg://tracker:tracker@localhost:5434/tracker_test",
 )
 
 
@@ -18,6 +18,7 @@ TEST_DATABASE_URL = os.environ.get(
 async def test_engine():
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, poolclass=NullPool)
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield engine
     await engine.dispose()

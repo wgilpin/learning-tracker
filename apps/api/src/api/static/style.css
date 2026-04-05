@@ -157,7 +157,7 @@ main:has(.editor-layout) {
     min-height: 0;
     position: sticky;
     top: 64px;
-    height: calc(100vh - 64px); /* corrected by JS via sizeChatPanel() */
+    height: calc(100dvh - 64px);
     align-self: start;
 }
 

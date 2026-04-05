@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from documentlm_core.config import settings
+from documentlm_core.schemas import TokenUsage
 from documentlm_core.services.chroma import get_chroma_client, query_topic_chunks_with_sources
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ Respond only with the answer — no preamble.
 class ChapterDraft:
     content: str
     cited_source_ids: list[uuid.UUID] = field(default_factory=list)
+    token_usage: TokenUsage = field(default_factory=TokenUsage)
 
 
 def _format_source_for_prompt(n: int, source) -> str:  # source: Source ORM object
@@ -121,7 +123,7 @@ async def _chunks_cover_topic(
         f"topic above — not just tangentially related, but actually covering it? YES or NO."
     )
     try:
-        response = await _run_agent(_RELEVANCE_CHECK_INSTRUCTION, prompt)
+        response, _usage = await _run_agent(_RELEVANCE_CHECK_INSTRUCTION, prompt)
         result = response.strip().upper().startswith("YES")
         logger.info(
             "Chapter Scribe relevance check for %r: %s", query_text[:60], "YES" if result else "NO"
@@ -132,7 +134,7 @@ async def _chunks_cover_topic(
         return False
 
 
-async def _run_agent(instruction: str, prompt: str) -> str:
+async def _run_agent(instruction: str, prompt: str) -> tuple[str, TokenUsage]:
     agent = Agent(
         name="chapter_scribe",
         model=settings.gemini_model,
@@ -154,6 +156,7 @@ async def _run_agent(instruction: str, prompt: str) -> str:
     )
 
     reply_text: str | None = None
+    usage = TokenUsage()
     async for event in runner.run_async(
         user_id="system",
         session_id=session.id,
@@ -161,12 +164,17 @@ async def _run_agent(instruction: str, prompt: str) -> str:
     ):
         if event.is_final_response() and event.content and event.content.parts:
             reply_text = event.content.parts[0].text
+            if event.usage_metadata:
+                usage = TokenUsage(
+                    input_tokens=event.usage_metadata.prompt_token_count or 0,
+                    output_tokens=event.usage_metadata.candidates_token_count or 0,
+                )
             break
 
     if not reply_text:
         raise RuntimeError("Chapter Scribe returned no response")
 
-    return reply_text
+    return reply_text, usage
 
 
 async def _scout_and_requery(
@@ -340,7 +348,7 @@ async def run_chapter_scribe(
         settings.gemini_model,
         len(sources),
     )
-    content = await _run_agent(_CHAPTER_INSTRUCTION, "\n\n".join(prompt_parts))
+    content, scribe_usage = await _run_agent(_CHAPTER_INSTRUCTION, "\n\n".join(prompt_parts))
     logger.info("Chapter Scribe complete for item_id=%s chars=%d", item_id, len(content))
 
     cited_indices = _extract_cited_indices(content)
@@ -355,7 +363,9 @@ async def run_chapter_scribe(
             content,
         )
 
-    return ChapterDraft(content=content, cited_source_ids=cited_source_ids)
+    return ChapterDraft(
+        content=content, cited_source_ids=cited_source_ids, token_usage=scribe_usage
+    )
 
 
 async def respond_to_comment(
@@ -397,7 +407,7 @@ async def respond_to_comment(
         f"Chapter excerpt for context (first 500 chars):\n{chapter.content[:500]}"
     )
 
-    response = await _run_agent(_COMMENT_INSTRUCTION, prompt)
+    response, _usage = await _run_agent(_COMMENT_INSTRUCTION, prompt)
     logger.info(
         "Chapter Scribe comment response complete for comment_id=%s chars=%d",
         comment_id,

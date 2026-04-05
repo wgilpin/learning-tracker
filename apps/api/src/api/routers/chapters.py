@@ -177,10 +177,17 @@ async def get_chapter(
         raise HTTPException(status_code=404, detail="Chapter not found")
 
     illustrations = await get_illustrations(session, chapter_id)
+    from documentlm_core.config import settings as _settings
     return templates.TemplateResponse(
         request,
         "chapters/detail.html",
-        {"chapter": chapter, "illustrations": illustrations},
+        {
+            "chapter": chapter,
+            "illustrations": illustrations,
+            "cost_input_per_m": _settings.cost_input_per_m,
+            "cost_output_per_m": _settings.cost_output_per_m,
+            "cost_per_image": _settings.cost_per_image,
+        },
     )
 
 
@@ -372,9 +379,12 @@ async def _draft_chapter_bg(
     item_description: str | None = None,
 ) -> None:
     from documentlm_core.agents.chapter_scribe import run_chapter_scribe
+    from documentlm_core.db.models import AtomicChapter as _AC
     from documentlm_core.db.session import AsyncSessionFactory
+    from documentlm_core.schemas import TokenUsage
     from documentlm_core.services.chapter import create_chapter
     from documentlm_core.services.illustration import run_illustration_pipeline
+    from sqlalchemy import update as _upd
 
     try:
         async with AsyncSessionFactory() as session:
@@ -383,7 +393,13 @@ async def _draft_chapter_bg(
                     item_id, item_title, topic_id, session, item_description=item_description
                 )
                 chapter = await create_chapter(
-                    session, item_id, topic_id, draft.content, draft.cited_source_ids
+                    session,
+                    item_id,
+                    topic_id,
+                    draft.content,
+                    draft.cited_source_ids,
+                    input_tokens=draft.token_usage.input_tokens,
+                    output_tokens=draft.token_usage.output_tokens,
                 )
                 await session.commit()
                 logger.info(
@@ -400,9 +416,13 @@ async def _draft_chapter_bg(
         # Run illustration pipeline in a fresh session after chapter is committed.
         # Failures here must never affect chapter availability.
         _illustrating_chapters.add(chapter.id)
+        image_count = 0
+        assess_usage = TokenUsage()
         async with AsyncSessionFactory() as ill_session:
             try:
-                await run_illustration_pipeline(chapter.id, draft.content, ill_session)
+                image_count, assess_usage = await run_illustration_pipeline(
+                    chapter.id, draft.content, ill_session
+                )
                 await ill_session.commit()
             except Exception:
                 logger.exception(
@@ -413,6 +433,27 @@ async def _draft_chapter_bg(
                 await ill_session.rollback()
             finally:
                 _illustrating_chapters.discard(chapter.id)
+
+        # Update chapter with final token totals (scribe + assessor) and image count.
+        async with AsyncSessionFactory() as update_session:
+            try:
+                total_input = draft.token_usage.input_tokens + assess_usage.input_tokens
+                total_output = draft.token_usage.output_tokens + assess_usage.output_tokens
+                await update_session.execute(
+                    _upd(_AC)
+                    .where(_AC.id == chapter.id)
+                    .values(
+                        generation_input_tokens=total_input,
+                        generation_output_tokens=total_output,
+                        generation_image_count=image_count,
+                    )
+                )
+                await update_session.commit()
+            except Exception:
+                logger.exception(
+                    "Token usage update failed for chapter_id=%s", chapter.id
+                )
+                await update_session.rollback()
     finally:
         _drafting_items.discard(item_id)
 

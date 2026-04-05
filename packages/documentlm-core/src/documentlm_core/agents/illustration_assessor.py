@@ -17,7 +17,7 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types as genai_types
 
 from documentlm_core.config import settings
-from documentlm_core.schemas import ParagraphAssessment
+from documentlm_core.schemas import ParagraphAssessment, TokenUsage
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +64,8 @@ Rules:
 _FENCE_RE = re.compile(r"^```[a-z]*\n(.*?)\n?```$", re.DOTALL)
 
 
-async def _run_assessor(prompt: str) -> str:
-    """Run the ADK agent and return the raw text reply."""
+async def _run_assessor(prompt: str) -> tuple[str, TokenUsage]:
+    """Run the ADK agent and return the raw text reply with token usage."""
     agent = Agent(
         name=_APP_NAME,
         model=settings.gemini_model,
@@ -83,6 +83,7 @@ async def _run_assessor(prompt: str) -> str:
     )
 
     reply_text: str | None = None
+    usage = TokenUsage()
     async for event in runner.run_async(
         user_id="system",
         session_id=session.id,
@@ -90,9 +91,14 @@ async def _run_assessor(prompt: str) -> str:
     ):
         if event.is_final_response() and event.content and event.content.parts:
             reply_text = event.content.parts[0].text
+            if event.usage_metadata:
+                usage = TokenUsage(
+                    input_tokens=event.usage_metadata.prompt_token_count or 0,
+                    output_tokens=event.usage_metadata.candidates_token_count or 0,
+                )
             break
 
-    return reply_text or ""
+    return reply_text or "", usage
 
 
 def _parse_assessment(raw: str) -> ParagraphAssessment:
@@ -112,11 +118,11 @@ def _parse_assessment(raw: str) -> ParagraphAssessment:
 
 async def assess_paragraph(
     paragraph_title: str, paragraph_text: str
-) -> ParagraphAssessment:
+) -> tuple[ParagraphAssessment, TokenUsage]:
     """Assess whether a paragraph needs an illustration.
 
-    Returns a ParagraphAssessment. On any failure, returns a safe default
-    (requires_image=False) and logs the error — never raises.
+    Returns a (ParagraphAssessment, TokenUsage). On any failure, returns a safe
+    default (requires_image=False) and logs the error — never raises.
     """
     prompt = (
         "<lesson text>\n"
@@ -129,7 +135,7 @@ async def assess_paragraph(
         len(paragraph_text),
     )
     try:
-        raw = await _run_assessor(prompt)
+        raw, usage = await _run_assessor(prompt)
         logger.debug("IllustrationAssessor: raw response=%r", raw[:200])
         result = _parse_assessment(raw)
         logger.debug(
@@ -137,17 +143,17 @@ async def assess_paragraph(
             result.requires_image,
             result.image_description[:80],
         )
-        return result
+        return result, usage
     except json.JSONDecodeError as exc:
         logger.warning(
             "IllustrationAssessor: JSON parse failed for paragraph title=%r: %s",
             paragraph_title[:60],
             exc,
         )
-        return ParagraphAssessment(requires_image=False, image_description="")
+        return ParagraphAssessment(requires_image=False, image_description=""), TokenUsage()
     except Exception:
         logger.exception(
             "IllustrationAssessor: unexpected error for paragraph title=%r",
             paragraph_title[:60],
         )
-        return ParagraphAssessment(requires_image=False, image_description="")
+        return ParagraphAssessment(requires_image=False, image_description=""), TokenUsage()

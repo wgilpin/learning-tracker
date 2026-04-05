@@ -38,6 +38,7 @@ Thumbs.db
 
 # Docker
 docker/postgres/data/
+backups/
 TODO.md
 
 # Data files
