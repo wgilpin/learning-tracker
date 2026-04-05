@@ -138,6 +138,16 @@
     if (chapterEl) {
       chatPanel.dataset.chapterId = chapterEl.dataset.chapterId;
       chatPanel.style.display = '';
+
+      // Remove italic from the syllabus item that just finished generating
+      var syllabusItemId = chapterEl.dataset.syllabusItemId;
+      if (syllabusItemId) {
+        var li = document.getElementById('child-' + syllabusItemId);
+        if (li) {
+          var em = li.querySelector('.syllabus-child-btn em');
+          if (em) em.outerHTML = em.textContent;
+        }
+      }
     } else {
       chatPanel.style.display = 'none';
     }

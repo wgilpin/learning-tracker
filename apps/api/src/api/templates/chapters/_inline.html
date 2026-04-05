@@ -1,4 +1,4 @@
-<div class="chapter-inline" data-chapter-id="{{ chapter.id }}"{% if has_quiz %} data-has-quiz="true"{% endif %}>
+<div class="chapter-inline" data-chapter-id="{{ chapter.id }}" data-syllabus-item-id="{{ item.id }}"{% if has_quiz %} data-has-quiz="true"{% endif %}>
   <div class="chapter-header">
     <h3 class="chapter-title">{{ item.title }}</h3>
     {% if dev_mode %}
