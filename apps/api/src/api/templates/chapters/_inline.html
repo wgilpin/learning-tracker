@@ -1,5 +1,16 @@
 <div class="chapter-inline" data-chapter-id="{{ chapter.id }}"{% if has_quiz %} data-has-quiz="true"{% endif %}>
-  <h3 class="chapter-title">{{ item.title }}</h3>
+  <div class="chapter-header">
+    <h3 class="chapter-title">{{ item.title }}</h3>
+    {% if dev_mode %}
+    <button
+      class="dev-regenerate-btn"
+      hx-delete="/syllabus-items/{{ item.id }}/chapter"
+      hx-target="#reading-panel"
+      hx-swap="innerHTML"
+      hx-confirm="Regenerate this chapter from scratch? All current content, illustrations, and comments will be deleted."
+    >↻ Regenerate</button>
+    {% endif %}
+  </div>
   {% for paragraph in chapter.content.split('\n\n') %}
   {% if paragraph.strip() %}
   <div class="chapter-paragraph" id="para-{{ chapter.id }}-{{ loop.index }}">

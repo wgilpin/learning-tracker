@@ -43,6 +43,7 @@ async def get_or_trigger_chapter(
     )).scalar_one_or_none()
 
     if existing is not None:
+        from documentlm_core.config import settings
         from documentlm_core.services.illustration import get_illustrations
         chapter = await get_chapter(session, existing.id)
         has_quiz = existing.quiz_questions is not None
@@ -55,6 +56,7 @@ async def get_or_trigger_chapter(
                 "item": item,
                 "has_quiz": has_quiz,
                 "illustrations": illustrations,
+                "dev_mode": bool(settings.dev_password),
             },
         )
 
@@ -106,6 +108,55 @@ async def post_chapter_draft(
 
     return templates.TemplateResponse(
         request, "chapters/_status_card.html", {"item_id": item_id, "chapter": chapter}
+    )
+
+
+@router.delete("/syllabus-items/{item_id}/chapter", response_class=HTMLResponse)
+async def regenerate_chapter(
+    request: Request,
+    item_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Dev-mode only: delete the current chapter and trigger a fresh draft.
+
+    Only available when DEV_PASSWORD is configured in the environment.
+    """
+    from documentlm_core.config import settings
+
+    if not settings.dev_password:
+        raise HTTPException(status_code=403, detail="Only available in dev mode")
+
+    from documentlm_core.db.models import AtomicChapter, SyllabusItem
+    from sqlalchemy import select
+
+    item = (
+        await session.execute(select(SyllabusItem).where(SyllabusItem.id == item_id))
+    ).scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="SyllabusItem not found")
+
+    existing = (
+        await session.execute(
+            select(AtomicChapter).where(AtomicChapter.syllabus_item_id == item_id)
+        )
+    ).scalar_one_or_none()
+
+    if existing is not None:
+        await session.delete(existing)
+        await session.commit()
+
+    _failed_items.discard(item_id)
+    _drafting_items.discard(item_id)
+
+    import asyncio
+
+    _drafting_items.add(item_id)
+    asyncio.create_task(
+        _draft_chapter_bg(item_id, item.topic_id, item.title, item.description)
+    )
+    logger.info("Chapter regeneration triggered for item_id=%s", item_id)
+    return templates.TemplateResponse(
+        request, "chapters/_generating.html", {"item_id": item_id}
     )
 
 
@@ -286,13 +337,24 @@ async def resolve_comment(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    from documentlm_core.config import settings
+    from documentlm_core.services.illustration import get_illustrations
+
     chapter = await get_chapter(session, chapter_id)
     item = (await session.execute(
         select(SyllabusItem).where(SyllabusItem.id == chapter.syllabus_item_id)
     )).scalar_one()
+    illustrations = await get_illustrations(session, chapter_id)
 
     response = templates.TemplateResponse(
-        request, "chapters/_inline.html", {"chapter": chapter, "item": item}
+        request,
+        "chapters/_inline.html",
+        {
+            "chapter": chapter,
+            "item": item,
+            "illustrations": illustrations,
+            "dev_mode": bool(settings.dev_password),
+        },
     )
     response.headers["HX-Retarget"] = "#reading-panel"
     response.headers["HX-Reswap"] = "innerHTML"
