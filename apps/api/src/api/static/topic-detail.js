@@ -288,10 +288,10 @@
 
 // Syllabus active state: track which chapter is open
 (function () {
-  document.getElementById('syllabus-items-list').addEventListener('click', function (e) {
-    var btn = e.target.closest('button.syllabus-child-btn[hx-push-url]');
-    if (!btn) return;
-    var li = btn.closest('li.syllabus-child');
+  document.addEventListener('htmx:beforeRequest', function (e) {
+    var elt = (e.detail && e.detail.elt) || e.target;
+    if (!elt || !elt.dataset || !elt.dataset.opensChapter) return;
+    var li = elt.closest('li.syllabus-child');
     if (!li) return;
     document.querySelectorAll('li.syllabus-child.is-active').forEach(function (el) {
       el.classList.remove('is-active');

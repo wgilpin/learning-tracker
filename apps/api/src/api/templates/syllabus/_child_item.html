@@ -10,7 +10,7 @@
          hx-vals='js:{status: event.target.checked ? "MASTERED" : "UNRESEARCHED"}'
          hx-trigger="change">
   {% if is_leaf %}
-  <button class="syllabus-child-btn"
+  <button class="syllabus-child-btn" data-opens-chapter="true"
           hx-get="/syllabus-items/{{ child.id }}/chapter"
           hx-target="#reading-panel"
           hx-swap="innerHTML"
