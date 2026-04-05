@@ -73,9 +73,26 @@ async def extract_and_index_source(
     except Exception as exc:
         source.index_status = IndexStatus.FAILED
         source.index_error = str(exc)
-        logger.exception("extract_and_index_source: failed source_id=%s", source_id)
+        # 403s are expected (paywalled/bot-blocking sites) — no stack trace needed
+        if _is_http_403(exc):
+            logger.warning(
+                "extract_and_index_source: 403 Forbidden for source_id=%s url=%s — skipping",
+                source_id,
+                getattr(source, "url", None),
+            )
+        else:
+            logger.exception("extract_and_index_source: failed source_id=%s", source_id)
 
     await session.flush()
+
+
+def _is_http_403(exc: BaseException) -> bool:
+    """Return True if exc is an HTTP 403 response error."""
+    try:
+        import httpx
+        return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 403
+    except ImportError:
+        return False
 
 
 def _chunk(text: str) -> list[str]:

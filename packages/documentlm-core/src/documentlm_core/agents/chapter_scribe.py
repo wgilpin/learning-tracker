@@ -23,7 +23,9 @@ _APP_NAME = "chapter_scribe"
 
 _CHAPTER_INSTRUCTION = """You are an academic tutor writing clear, well-structured study chapters.
 
-Given a topic and sub-topic title, write a comprehensive chapter that a student can learn from.
+The chapter TITLE and DESCRIPTION define exactly what this chapter must cover — they are
+authoritative. Write the chapter about that specific topic regardless of what the provided
+sources contain.
 
 The chapter should:
 - Open with a clear explanation of what this topic is and why it matters
@@ -38,22 +40,31 @@ previous material.
 
 Write only the chapter content — no preamble, no "here is your chapter" introductions.
 
-You will be given a numbered "Available sources" list. When making a factual claim
-supported by a source, insert an inline citation marker immediately after the relevant
-sentence, in the style [1].
+You will be given a numbered "Available sources" list. Use these sources to support claims
+where they are relevant to the chapter topic. When making a factual claim supported by a
+source, insert an inline citation marker immediately after the relevant sentence, in the
+style [1].
 
 Rules:
+- Write comprehensively about the stated chapter topic — the title and description are the
+  subject, not the sources.
 - Only cite sources from the "Available sources" list provided.
 - You may cite the same source multiple times.
-- Not every sentence needs a citation — only claims directly supported by a listed source.
-- Every sentence or paragraph that can be supported by a ctiation must have a citation marker.
-- Material should not come from your training data — only from the provided sources.
-- Therefore every paragraph should have a citation marker, since all material must be sourced.
+- Only cite a source for a claim it actually supports — do not force citations onto
+  off-topic material.
+- If sources do not cover an aspect of the topic, write from your knowledge without
+  inventing a citation.
 - At the very end, after your summary, add a "## References" section listing ONLY the
   sources you actually cited, preserving their original numbers. Format each line exactly as:
   [n] Full citation text as provided in the reference list.
 - Do not invent sources or cite sources not in the list.
 """
+
+_RELEVANCE_CHECK_INSTRUCTION = (
+    "You are deciding whether retrieved source excerpts are relevant and sufficient to write "
+    "a chapter on a given topic. "
+    "Respond with ONLY the single word YES or NO — no explanation, no punctuation."
+)
 
 _COMMENT_INSTRUCTION = """You are an academic tutor responding to a student's question
 or comment on a passage they are reading.
@@ -91,6 +102,36 @@ def _extract_cited_indices(content: str) -> set[int]:
     return {int(m) for m in re.findall(r"\[(\d+)\]", content)}
 
 
+async def _chunks_cover_topic(
+    query_text: str,
+    chunk_pairs: list[tuple[str, uuid.UUID]],
+) -> bool:
+    """Ask the LLM whether the retrieved chunks actually cover the chapter topic.
+
+    Returns True if the LLM judges the excerpts sufficient, False otherwise.
+    On any error, returns False so the Academic Scout fallback is triggered.
+    """
+    excerpts = "\n\n".join(
+        f"[{i + 1}] {chunk[:400]}" for i, (chunk, _) in enumerate(chunk_pairs[:6])
+    )
+    prompt = (
+        f"Chapter topic: {query_text}\n\n"
+        f"Retrieved source excerpts:\n{excerpts}\n\n"
+        f"Are these excerpts relevant and sufficient to write a comprehensive chapter on the "
+        f"topic above — not just tangentially related, but actually covering it? YES or NO."
+    )
+    try:
+        response = await _run_agent(_RELEVANCE_CHECK_INSTRUCTION, prompt)
+        result = response.strip().upper().startswith("YES")
+        logger.info(
+            "Chapter Scribe relevance check for %r: %s", query_text[:60], "YES" if result else "NO"
+        )
+        return result
+    except Exception:
+        logger.exception("Chapter Scribe: relevance check failed — treating as insufficient")
+        return False
+
+
 async def _run_agent(instruction: str, prompt: str) -> str:
     agent = Agent(
         name="chapter_scribe",
@@ -100,6 +141,12 @@ async def _run_agent(instruction: str, prompt: str) -> str:
     session_service = InMemorySessionService()
     session = await session_service.create_session(app_name=_APP_NAME, user_id="system")
     runner = Runner(agent=agent, app_name=_APP_NAME, session_service=session_service)
+
+    logger.debug(
+        "Chapter Scribe LLM call — instruction:\n%s\n\n--- prompt ---\n%s",
+        instruction,
+        prompt,
+    )
 
     user_message = genai_types.Content(
         role="user",
@@ -120,6 +167,79 @@ async def _run_agent(instruction: str, prompt: str) -> str:
         raise RuntimeError("Chapter Scribe returned no response")
 
     return reply_text
+
+
+async def _scout_and_requery(
+    topic_id: uuid.UUID,
+    item_title: str,
+    query_text: str,
+    session: AsyncSession,
+    chroma_client,
+) -> list[tuple[str, uuid.UUID]]:
+    """Run Academic Scout to find new sources for a chapter query.
+
+    ``item_title`` is used as the web search query (concise, searchable).
+    ``query_text`` (title + description) is used for the ChromaDB re-query.
+
+    Creates UserSourceRef entries so the new sources are visible to this topic,
+    then re-queries ChromaDB. Returns the updated chunk pairs (may be empty if
+    the scout finds nothing or API keys are not configured).
+    """
+    from documentlm_core.agents.academic_scout import run_academic_scout
+    from documentlm_core.db.models import Topic, UserSourceRef
+
+    logger.warning(
+        "Chapter Scribe: chunks insufficient for %r — triggering Academic Scout", item_title
+    )
+    try:
+        topic_obj = (
+            await session.execute(select(Topic).where(Topic.id == topic_id))
+        ).scalar_one_or_none()
+        if topic_obj is None:
+            logger.warning("Chapter Scribe: topic %s not found — skipping scout", topic_id)
+            return []
+
+        new_ids = await run_academic_scout(topic_id, item_title, session)
+        # run_academic_scout commits per source; now link each new source via UserSourceRef
+        for src_id in new_ids:
+            existing = (
+                await session.execute(
+                    select(UserSourceRef).where(
+                        UserSourceRef.user_id == topic_obj.user_id,
+                        UserSourceRef.source_id == src_id,
+                        UserSourceRef.topic_id == topic_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if existing is None:
+                session.add(
+                    UserSourceRef(
+                        id=uuid.uuid4(),
+                        user_id=topic_obj.user_id,
+                        source_id=src_id,
+                        topic_id=topic_id,
+                    )
+                )
+        await session.flush()
+
+        # Re-query with all topic sources now including newly discovered ones
+        refs_result = await session.execute(
+            select(UserSourceRef).where(UserSourceRef.topic_id == topic_id)
+        )
+        updated_source_ids = [ref.source_id for ref in refs_result.scalars().all()]
+        chunk_pairs = query_topic_chunks_with_sources(
+            chroma_client, updated_source_ids, query_text, n_results=10, max_distance=1.1
+        )
+        logger.info(
+            "Chapter Scribe post-scout retrieved %d chunk(s) from ChromaDB", len(chunk_pairs)
+        )
+        return chunk_pairs
+
+    except Exception:
+        logger.exception(
+            "Chapter Scribe: Academic Scout fallback failed — continuing without new sources"
+        )
+        return []
 
 
 async def run_chapter_scribe(
@@ -147,7 +267,15 @@ async def run_chapter_scribe(
     chunk_pairs = query_topic_chunks_with_sources(
         chroma_client, topic_source_ids, query_text, n_results=10
     )
-    logger.info("Chapter Scribe retrieved %d source chunk(s) from ChromaDB", len(chunk_pairs))
+    logger.info("Chapter Scribe retrieved %d candidate chunk(s) from ChromaDB", len(chunk_pairs))
+
+    # Ask the LLM whether the chunks actually cover this chapter topic.
+    # If not (or if there are no chunks at all), trigger Academic Scout to find better sources.
+    chunks_sufficient = chunk_pairs and await _chunks_cover_topic(query_text, chunk_pairs)
+    if not chunks_sufficient:
+        chunk_pairs = await _scout_and_requery(
+            topic_id, item_title, query_text, session, chroma_client
+        )
 
     # Deduplicate source IDs preserving similarity order
     chunk_source_ids = list(dict.fromkeys(src_id for _, src_id in chunk_pairs))
@@ -175,7 +303,10 @@ async def run_chapter_scribe(
     context_summaries = await get_context_summaries(session, topic_id, item_id)
     logger.info("Chapter Scribe found %d prior chapter summary(ies)", len(context_summaries))
 
-    prompt_parts = [f"Topic: {item_title}"]
+    topic_line = f"Topic: {item_title}"
+    if item_description:
+        topic_line += f"\nDescription: {item_description}"
+    prompt_parts = [topic_line]
 
     if sources:
         # Group chunks by source
@@ -232,7 +363,9 @@ async def respond_to_comment(
     chapter_id: uuid.UUID,
     session: AsyncSession,
 ) -> str:
-    logger.info("Chapter Scribe responding to comment_id=%s on chapter_id=%s", comment_id, chapter_id)
+    logger.info(
+        "Chapter Scribe responding to comment_id=%s on chapter_id=%s", comment_id, chapter_id
+    )
     from sqlalchemy import select
 
     from documentlm_core.db.models import AtomicChapter, MarginComment
@@ -265,5 +398,9 @@ async def respond_to_comment(
     )
 
     response = await _run_agent(_COMMENT_INSTRUCTION, prompt)
-    logger.info("Chapter Scribe comment response complete for comment_id=%s chars=%d", comment_id, len(response))
+    logger.info(
+        "Chapter Scribe comment response complete for comment_id=%s chars=%d",
+        comment_id,
+        len(response),
+    )
     return response

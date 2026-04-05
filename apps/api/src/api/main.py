@@ -52,6 +52,9 @@ logging.basicConfig(
 for _noisy_logger in ("markdown_it", "google", "httpx", "httpcore", "chromadb", "uvicorn.access"):
     logging.getLogger(_noisy_logger).setLevel(logging.WARNING)
 
+# Always show ChromaDB distance logs regardless of LOG_LEVEL, so we can tune thresholds
+logging.getLogger("documentlm_core.services.chroma").setLevel(logging.DEBUG)
+
 
 # ---------------------------------------------------------------------------
 # Lifespan

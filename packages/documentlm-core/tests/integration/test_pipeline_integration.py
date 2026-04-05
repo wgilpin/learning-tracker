@@ -190,6 +190,10 @@ class TestChapterScribeRetrieval:
                 new=AsyncMock(side_effect=_fake_run_agent),
             ),
             patch(
+                "documentlm_core.agents.chapter_scribe._chunks_cover_topic",
+                new=AsyncMock(return_value=True),
+            ),
+            patch(
                 "documentlm_core.services.chapter.get_context_summaries",
                 new=AsyncMock(return_value=[]),
             ),
@@ -294,6 +298,10 @@ class TestChapterScribeRetrieval:
                 new=AsyncMock(side_effect=_fake_run_agent),
             ),
             patch(
+                "documentlm_core.agents.chapter_scribe._chunks_cover_topic",
+                new=AsyncMock(return_value=True),
+            ),
+            patch(
                 "documentlm_core.services.chapter.get_context_summaries",
                 new=AsyncMock(return_value=[]),
             ),
@@ -312,3 +320,196 @@ class TestChapterScribeRetrieval:
         # Count separator occurrences — 10 chunks means 9 separators
         separator_count = prompt.count("\n\n---\n\n")
         assert separator_count <= 9  # at most 10 chunks
+
+    @pytest.mark.asyncio
+    async def test_scribe_triggers_academic_scout_when_no_chunks(
+        self, async_session: AsyncSession, test_user
+    ) -> None:
+        """When ChromaDB returns no chunks, Academic Scout is triggered to find sources."""
+        from documentlm_core.db.models import Topic
+
+        topic = Topic(title="Knowledge Graphs", user_id=test_user.id)
+        async_session.add(topic)
+        await async_session.flush()
+
+        ephemeral = chromadb.EphemeralClient()  # empty — no chunks
+
+        async def _fake_run_agent(instruction: str, prompt: str) -> str:
+            return "Chapter content."
+
+        scout_calls: list[tuple] = []
+
+        async def _fake_scout_requery(topic_id, item_title, query_text, session, chroma_client):
+            scout_calls.append((topic_id, query_text))
+            return []  # no new sources found
+
+        with (
+            patch(
+                "documentlm_core.agents.chapter_scribe.get_chroma_client",
+                return_value=ephemeral,
+            ),
+            patch(
+                "documentlm_core.agents.chapter_scribe._run_agent",
+                new=AsyncMock(side_effect=_fake_run_agent),
+            ),
+            patch(
+                "documentlm_core.services.chapter.get_context_summaries",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "documentlm_core.agents.chapter_scribe._scout_and_requery",
+                new=AsyncMock(side_effect=_fake_scout_requery),
+            ),
+        ):
+            from documentlm_core.agents.chapter_scribe import run_chapter_scribe
+
+            await run_chapter_scribe(
+                item_id=uuid.uuid4(),
+                item_title="Knowledge Graph Embeddings",
+                item_description="TransR and RotatE models",
+                topic_id=topic.id,
+                session=async_session,
+            )
+
+        assert len(scout_calls) == 1
+        assert scout_calls[0][0] == topic.id
+
+    @pytest.mark.asyncio
+    async def test_scribe_does_not_trigger_scout_when_chunks_relevant(
+        self, async_session: AsyncSession, test_user
+    ) -> None:
+        """When chunks exist and LLM judges them relevant, Academic Scout is NOT triggered."""
+        from documentlm_core.db.models import Source, Topic, UserSourceRef
+
+        topic = Topic(title="ML Topic", user_id=test_user.id)
+        async_session.add(topic)
+        await async_session.flush()
+
+        source = Source(title="Embeddings Paper", authors=[], source_type="SEARCH")
+        async_session.add(source)
+        await async_session.flush()
+        async_session.add(UserSourceRef(
+            user_id=test_user.id, source_id=source.id, topic_id=topic.id
+        ))
+        await async_session.flush()
+
+        ephemeral = chromadb.EphemeralClient()
+        upsert_source_chunks(
+            ephemeral,
+            source.id,
+            ["TransE embeds entities into a continuous vector space."],
+        )
+
+        scout_called = False
+
+        async def _fake_scout(*args, **kwargs):
+            nonlocal scout_called
+            scout_called = True
+            return []
+
+        async def _fake_run_agent(instruction: str, prompt: str) -> str:
+            return "Chapter content."
+
+        with (
+            patch(
+                "documentlm_core.agents.chapter_scribe.get_chroma_client",
+                return_value=ephemeral,
+            ),
+            patch(
+                "documentlm_core.agents.chapter_scribe._run_agent",
+                new=AsyncMock(side_effect=_fake_run_agent),
+            ),
+            patch(
+                "documentlm_core.agents.chapter_scribe._chunks_cover_topic",
+                new=AsyncMock(return_value=True),
+            ),
+            patch(
+                "documentlm_core.services.chapter.get_context_summaries",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "documentlm_core.agents.chapter_scribe._scout_and_requery",
+                new=AsyncMock(side_effect=_fake_scout),
+            ),
+        ):
+            from documentlm_core.agents.chapter_scribe import run_chapter_scribe
+
+            await run_chapter_scribe(
+                item_id=uuid.uuid4(),
+                item_title="Knowledge Graph Embeddings",
+                item_description="TransR and RotatE models",
+                topic_id=topic.id,
+                session=async_session,
+            )
+
+        assert not scout_called
+
+    @pytest.mark.asyncio
+    async def test_scribe_triggers_scout_when_chunks_irrelevant(
+        self, async_session: AsyncSession, test_user
+    ) -> None:
+        """When chunks exist but LLM judges them off-topic, Academic Scout IS triggered."""
+        from documentlm_core.db.models import Source, Topic, UserSourceRef
+
+        topic = Topic(title="Knowledge Graphs", user_id=test_user.id)
+        async_session.add(topic)
+        await async_session.flush()
+
+        source = Source(title="Intro to Graphs", authors=[], source_type="SEARCH")
+        async_session.add(source)
+        await async_session.flush()
+        async_session.add(UserSourceRef(
+            user_id=test_user.id, source_id=source.id, topic_id=topic.id
+        ))
+        await async_session.flush()
+
+        ephemeral = chromadb.EphemeralClient()
+        upsert_source_chunks(
+            ephemeral,
+            source.id,
+            ["A graph is a set of vertices connected by edges."],
+        )
+
+        scout_calls: list[tuple] = []
+
+        async def _fake_scout_requery(topic_id, item_title, query_text, session, chroma_client):
+            scout_calls.append((topic_id, query_text))
+            return []
+
+        async def _fake_run_agent(instruction: str, prompt: str) -> str:
+            return "Chapter content."
+
+        with (
+            patch(
+                "documentlm_core.agents.chapter_scribe.get_chroma_client",
+                return_value=ephemeral,
+            ),
+            patch(
+                "documentlm_core.agents.chapter_scribe._run_agent",
+                new=AsyncMock(side_effect=_fake_run_agent),
+            ),
+            patch(
+                "documentlm_core.agents.chapter_scribe._chunks_cover_topic",
+                new=AsyncMock(return_value=False),
+            ),
+            patch(
+                "documentlm_core.services.chapter.get_context_summaries",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "documentlm_core.agents.chapter_scribe._scout_and_requery",
+                new=AsyncMock(side_effect=_fake_scout_requery),
+            ),
+        ):
+            from documentlm_core.agents.chapter_scribe import run_chapter_scribe
+
+            await run_chapter_scribe(
+                item_id=uuid.uuid4(),
+                item_title="Knowledge Graph Embeddings",
+                item_description="TransR and RotatE models",
+                topic_id=topic.id,
+                session=async_session,
+            )
+
+        assert len(scout_calls) == 1
+        assert scout_calls[0][0] == topic.id

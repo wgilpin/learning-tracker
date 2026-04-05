@@ -9,11 +9,14 @@ In tests, pass chromadb.EphemeralClient() instead of the persistent client.
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 import chromadb
 
 from documentlm_core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_chroma_client() -> chromadb.ClientAPI:
@@ -58,11 +61,16 @@ def query_topic_chunks_with_sources(
     source_ids: list[uuid.UUID],
     query_text: str,
     n_results: int = 10,
+    max_distance: float | None = None,
 ) -> list[tuple[str, uuid.UUID]]:
     """Return (chunk_text, source_id) pairs most similar to query_text.
 
     Queries each source's collection and merges results.
     Returns an empty list if no collections exist or no chunks found.
+
+    ``max_distance`` filters out chunks less similar than the threshold (higher
+    distance = less similar). Distances are cosine distances in [0, 2]. Pass
+    ``None`` (default) to disable filtering.
     """
     if not source_ids:
         return []
@@ -95,8 +103,29 @@ def query_topic_chunks_with_sources(
         for doc, dist in zip(docs, distances):
             all_pairs.append((doc, source_id, dist))
 
-    # Sort by distance (ascending = most similar first), take top n_results
+    if not all_pairs:
+        return []
+
+    # Sort by distance (ascending = most similar first)
     all_pairs.sort(key=lambda x: x[2])
+
+    # Log distance range to help tune max_distance threshold
+    logger.debug(
+        "ChromaDB query %r — chunks=%d min_dist=%.3f max_dist=%.3f",
+        query_text[:60],
+        len(all_pairs),
+        all_pairs[0][2],
+        all_pairs[-1][2],
+    )
+
+    if max_distance is not None:
+        all_pairs = [t for t in all_pairs if t[2] <= max_distance]
+        logger.debug(
+            "ChromaDB query after max_distance=%.2f filter: %d chunk(s) remaining",
+            max_distance,
+            len(all_pairs),
+        )
+
     return [(doc, src_id) for doc, src_id, _ in all_pairs[:n_results]]
 
 
