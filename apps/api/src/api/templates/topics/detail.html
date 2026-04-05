@@ -414,6 +414,20 @@
   });
 })();
 
+// Update is-active on syllabus leaf items when a chapter is opened
+(function () {
+  document.getElementById('syllabus-items-list').addEventListener('click', function (e) {
+    var btn = e.target.closest('button.syllabus-child-btn[hx-push-url]');
+    if (!btn) return;
+    var li = btn.closest('li.syllabus-child');
+    if (!li) return;
+    document.querySelectorAll('li.syllabus-child.is-active').forEach(function (el) {
+      el.classList.remove('is-active');
+    });
+    li.classList.add('is-active');
+  });
+})();
+
 // Keep chat panel filling from its current top to the viewport bottom,
 // both before and after the sticky threshold kicks in.
 (function () {
