@@ -73,12 +73,13 @@ async def extract_and_index_source(
     except Exception as exc:
         source.index_status = IndexStatus.FAILED
         source.index_error = str(exc)
-        # 403s are expected (paywalled/bot-blocking sites) — no stack trace needed
-        if _is_http_403(exc):
+        # Expected failures (paywalled/bot-blocking sites, unscrapable pages) — warning only
+        if _is_expected_extraction_failure(exc):
             logger.warning(
-                "extract_and_index_source: 403 Forbidden for source_id=%s url=%s — skipping",
+                "extract_and_index_source: skipped source_id=%s url=%s — %s",
                 source_id,
                 getattr(source, "url", None),
+                exc,
             )
         else:
             logger.exception("extract_and_index_source: failed source_id=%s", source_id)
@@ -86,13 +87,23 @@ async def extract_and_index_source(
     await session.flush()
 
 
-def _is_http_403(exc: BaseException) -> bool:
-    """Return True if exc is an HTTP 403 response error."""
+def _is_expected_extraction_failure(exc: BaseException) -> bool:
+    """Return True for failures that are expected (blocked sites, unscrapable pages).
+
+    These are logged as WARNING without a stack trace. Unexpected failures
+    (connection errors, crashes) still use logger.exception.
+    """
+    # HTTP 4xx client errors — paywalled, bot-blocked, not found, etc.
     try:
         import httpx
-        return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 403
+        if isinstance(exc, httpx.HTTPStatusError) and 400 <= exc.response.status_code < 500:
+            return True
     except ImportError:
-        return False
+        pass
+    # ValueError raised explicitly by fetchers when no text could be extracted
+    if isinstance(exc, ValueError):
+        return True
+    return False
 
 
 def _chunk(text: str) -> list[str]:

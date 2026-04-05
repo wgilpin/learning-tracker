@@ -100,6 +100,69 @@ async def search_youtube(query: str, max_results: int = 3) -> list[_SourceResult
         return []
 
 
+async def search_wikipedia(query: str, max_results: int = 3) -> list[_SourceResult]:
+    """Search Wikipedia for articles matching the query.
+
+    Uses the `wikipedia` PyPI package (synchronous — run in executor to avoid blocking).
+    Returns empty list if the package is unavailable or the search fails.
+    """
+    import asyncio
+
+    try:
+        import wikipedia  # type: ignore[import-untyped]
+    except ImportError:
+        logger.info("wikipedia package not installed — skipping Wikipedia search")
+        return []
+
+    def _sync_search() -> list[_SourceResult]:
+        results: list[_SourceResult] = []
+        try:
+            titles = wikipedia.search(query, results=max_results)
+        except Exception:
+            logger.exception("Wikipedia search failed for query=%r", query)
+            return []
+
+        for title in titles:
+            try:
+                page = wikipedia.page(title, auto_suggest=False)
+                # Build a plain-text excerpt from the summary (first 2 000 chars)
+                content = page.summary[:2000] if page.summary else ""
+                if not content:
+                    continue
+                results.append(
+                    {
+                        "title": page.title,
+                        "url": page.url,
+                        "doi": None,
+                        "authors": ["Wikipedia"],
+                        "_content": content,  # type: ignore[typeddict-unknown-key]
+                    }
+                )
+            except wikipedia.exceptions.DisambiguationError as e:
+                # Try the first suggested option
+                try:
+                    page = wikipedia.page(e.options[0], auto_suggest=False)
+                    content = page.summary[:2000] if page.summary else ""
+                    if content:
+                        results.append(
+                            {
+                                "title": page.title,
+                                "url": page.url,
+                                "doi": None,
+                                "authors": ["Wikipedia"],
+                                "_content": content,  # type: ignore[typeddict-unknown-key]
+                            }
+                        )
+                except Exception:
+                    pass
+            except Exception:
+                logger.debug("Wikipedia: could not fetch page %r", title)
+        return results
+
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _sync_search)
+
+
 async def run_academic_scout(
     topic_id: uuid.UUID,
     topic_title: str,
@@ -128,7 +191,11 @@ async def run_academic_scout(
     youtube_results = await search_youtube(topic_title)
     logger.info("Academic Scout YouTube returned %d results", len(youtube_results))
 
-    all_results = arxiv_results + youtube_results
+    logger.info("Academic Scout searching Wikipedia for %r", topic_title)
+    wikipedia_results = await search_wikipedia(topic_title)
+    logger.info("Academic Scout Wikipedia returned %d results", len(wikipedia_results))
+
+    all_results = arxiv_results + youtube_results + wikipedia_results
     logger.info("Academic Scout persisting %d discovered sources", len(all_results))
     created_ids: list[uuid.UUID] = []
 
@@ -141,6 +208,12 @@ async def run_academic_scout(
         if not title:
             continue
         if not url and not doi:
+            continue
+        # Skip bare Wikipedia URLs from web search — search_wikipedia() handles
+        # these with pre-fetched content, avoiding a redundant (and 403-prone) fetch.
+        prefetched_content: str | None = result.get("_content")  # type: ignore[typeddict-item]
+        if url and "wikipedia.org/wiki/" in url and not prefetched_content:
+            logger.debug("Academic Scout skipping Wikipedia URL: %s", url)
             continue
 
         try:
@@ -156,8 +229,31 @@ async def run_academic_scout(
                 ),
             )
             created_ids.append(source.id)
-            logger.info("Academic Scout extracting and indexing source_id=%s", source.id)
-            await extract_and_index_source(source.id, session)
+            if prefetched_content:
+                # Inject Wikipedia text directly so the pipeline skips HTTP fetching
+                from documentlm_core.db.models import Source
+                from documentlm_core.schemas import IndexStatus
+                from documentlm_core.services.chroma import get_chroma_client, upsert_source_chunks
+                from documentlm_core.services.pipeline import _chunk
+
+                source_obj = await session.get(Source, source.id)
+                if source_obj is not None and source_obj.index_status != IndexStatus.INDEXED:
+                    chunks = _chunk(prefetched_content)
+                    if chunks:
+                        chroma_client = get_chroma_client()
+                        upsert_source_chunks(chroma_client, source.id, chunks)
+                        source_obj.content = prefetched_content
+                        source_obj.index_status = IndexStatus.INDEXED
+                        source_obj.index_error = None
+                        logger.info(
+                            "Academic Scout indexed Wikipedia source title=%r chunks=%d",
+                            title,
+                            len(chunks),
+                        )
+                        await session.flush()
+            else:
+                logger.info("Academic Scout extracting and indexing source_id=%s", source.id)
+                await extract_and_index_source(source.id, session)
             await session.commit()
         except Exception:
             logger.exception("Failed to persist source title=%r", title)
