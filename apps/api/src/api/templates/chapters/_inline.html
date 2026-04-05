@@ -27,11 +27,14 @@
   {% if paragraph.strip() %}
   {% set is_heading = paragraph.strip().startswith('## ') %}
   {% if is_heading and ns.pending_illus_index is not none %}
-  <img
-    src="/chapters/{{ chapter.id }}/illustrations/{{ ns.pending_illus_index }}"
-    alt="{{ illustrations[ns.pending_illus_index].image_description }}"
-    class="chapter-illustration"
-  />
+  <figure class="chapter-illustration-figure">
+    <img
+      src="/chapters/{{ chapter.id }}/illustrations/{{ ns.pending_illus_index }}"
+      alt="{{ illustrations[ns.pending_illus_index].image_description }}"
+      class="chapter-illustration"
+    />
+    <figcaption>{{ illustrations[ns.pending_illus_index].image_caption }}</figcaption>
+  </figure>
   {% set ns.pending_illus_index = none %}
   {% endif %}
   <div class="chapter-paragraph" id="para-{{ chapter.id }}-{{ loop.index }}">
@@ -48,10 +51,13 @@
   {% endif %}
   {% endfor %}
   {% if ns.pending_illus_index is not none %}
-  <img
-    src="/chapters/{{ chapter.id }}/illustrations/{{ ns.pending_illus_index }}"
-    alt="{{ illustrations[ns.pending_illus_index].image_description }}"
-    class="chapter-illustration"
-  />
+  <figure class="chapter-illustration-figure">
+    <img
+      src="/chapters/{{ chapter.id }}/illustrations/{{ ns.pending_illus_index }}"
+      alt="{{ illustrations[ns.pending_illus_index].image_description }}"
+      class="chapter-illustration"
+    />
+    <figcaption>{{ illustrations[ns.pending_illus_index].image_caption }}</figcaption>
+  </figure>
   {% endif %}
 </div>

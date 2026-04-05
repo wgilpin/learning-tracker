@@ -69,10 +69,10 @@ async def _process_section(
     title: str,
     body: str,
     model: str,
-) -> tuple[int, bytes, str, str] | None:
+) -> tuple[int, bytes, str, str, str] | None:
     """Assess and generate an image for one section.
 
-    Returns (para_index, image_bytes, mime_type, description) or None if the
+    Returns (para_index, image_bytes, mime_type, description, caption) or None if the
     section doesn't need an image or any step fails. Never raises.
     """
     try:
@@ -95,7 +95,7 @@ async def _process_section(
         return None
 
     try:
-        result = await generate_image(assessment.image_description, model)
+        result = await generate_image(assessment.image_description, model, body)
     except Exception:
         logger.exception(
             "IllustrationPipeline: generation failed chapter_id=%s section=%d %r",
@@ -115,7 +115,7 @@ async def _process_section(
         return None
 
     image_bytes, mime_type = result
-    return (para_index, image_bytes, mime_type, assessment.image_description)
+    return (para_index, image_bytes, mime_type, assessment.image_description, assessment.image_caption)
 
 
 async def run_illustration_pipeline(
@@ -147,15 +147,29 @@ async def run_illustration_pipeline(
         model,
     )
 
+    _MAX_ILLUSTRATIONS_PER_CHAPTER = 2
+
     results = await asyncio.gather(
         *[_process_section(chapter_id, idx, title, body, model) for idx, title, body in sections]
     )
 
+    # Cap to the first MAX_ILLUSTRATIONS_PER_CHAPTER successful results (by section order)
+    hits = [r for r in results if r is not None]
+    hits.sort(key=lambda r: r[0])
+    capped = hits[:_MAX_ILLUSTRATIONS_PER_CHAPTER]
+    if len(hits) > _MAX_ILLUSTRATIONS_PER_CHAPTER:
+        logger.info(
+            "IllustrationPipeline: capping illustrations chapter_id=%s assessed=%d kept=%d",
+            chapter_id,
+            len(hits),
+            _MAX_ILLUSTRATIONS_PER_CHAPTER,
+        )
+
     generated = 0
-    for result in results:
+    for result in capped:
         if result is None:
             continue
-        para_index, image_bytes, mime_type, description = result
+        para_index, image_bytes, mime_type, description, caption = result
         illustration = ChapterIllustration(
             id=uuid.uuid4(),
             chapter_id=chapter_id,
@@ -163,6 +177,7 @@ async def run_illustration_pipeline(
             image_data=image_bytes,
             image_mime_type=mime_type,
             image_description=description,
+            image_caption=caption,
             created_at=datetime.now(UTC),
         )
         session.add(illustration)

@@ -328,6 +328,7 @@ class ChapterIllustration(Base):
     image_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     image_mime_type: Mapped[str] = mapped_column(String(64), nullable=False)
     image_description: Mapped[str] = mapped_column(Text, nullable=False)
+    image_caption: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow
     )

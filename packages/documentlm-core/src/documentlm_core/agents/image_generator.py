@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 
 _IMAGE_PROMPT_PREFIX = (
     "For use in an academic textbook, create the following as a simple image only. "
-    "Use a white background."
+    "Use a white background. "
     "Only include descriptive text if the image cannot be understood without it, as "
-    "the image will be displayed alongside an explanatory paragraph"
+    "the image will be displayed alongside an explanatory paragraph. "
     "The image will be displayed at a maximum width of 600px. "
 )
 
@@ -30,7 +30,7 @@ def _get_client() -> genai.Client:
 
 
 async def generate_image(
-    image_description: str, model: str
+    image_description: str, model: str, paragraph_text: str = ""
 ) -> tuple[bytes, str] | None:
     """Generate an illustration for the given description using the specified model.
 
@@ -42,11 +42,16 @@ async def generate_image(
         A tuple of (image_bytes, mime_type) on success, or None on failure.
         Never raises — all exceptions are caught and logged.
     """
-    prompt = _IMAGE_PROMPT_PREFIX + image_description
-    logger.debug(
-        "ImageGenerator: generating image model=%r description=%r",
+    para_context = (
+        f" This is the paragraph the image is illustrating: {paragraph_text}"
+        if paragraph_text
+        else ""
+    )
+    prompt = _IMAGE_PROMPT_PREFIX + image_description + para_context
+    logger.info(
+        "ImageGenerator: full prompt model=%r prompt=%r",
         model,
-        image_description[:120],
+        prompt,
     )
     try:
         client = _get_client()

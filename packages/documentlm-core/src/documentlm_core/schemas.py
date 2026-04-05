@@ -240,6 +240,7 @@ class QuizAnswerResult(BaseModel):
 class ParagraphAssessment(BaseModel):
     requires_image: bool
     image_description: str
+    image_caption: str = ""
 
 
 class IllustrationRead(BaseModel):
@@ -248,6 +249,7 @@ class IllustrationRead(BaseModel):
     paragraph_index: int
     image_mime_type: str
     image_description: str
+    image_caption: str
     created_at: datetime
 
     model_config = {"from_attributes": True}

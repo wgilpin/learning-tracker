@@ -35,16 +35,30 @@ this format:
 
 or:
 
-{"requires_image": false, "image_description": ""}
+{"requires_image": false, "image_description": "", "image_caption": ""}
 
 Rules:
-- Set requires_image to true only when a visual would genuinely aid comprehension
-  (e.g. diagrams, processes, anatomical structures, physical phenomena, timelines).
-- Set requires_image to false for abstract text, references sections, or introductory prose
-  that would not benefit from a visual.
+- Default to false. Only set requires_image to true when a diagram or visual would make
+  a concept significantly clearer than text alone — for example: a labelled physical
+  structure, a step-by-step process with distinct stages, or a spatial relationship
+  that is genuinely hard to follow without a picture.
+- Set requires_image to false for: abstract or conceptual text, historical narrative,
+  definitions, introductory or summary paragraphs, and anything where a photo or
+  diagram would be decorative rather than explanatory.
+- A paragraph must contain concrete, visualisable content before an image is warranted.
+  If in doubt, choose false.
+- The image_description must illustrate one single, concrete element unique to this
+  specific paragraph — not the general topic or chapter theme. If the image you would
+  describe could equally apply to any other paragraph in the chapter, set requires_image
+  to false.
 - image_description must be a clear, standalone description that an illustrator can act on
   without further context. Write it as a directive: "A diagram showing X", "A cross-section of Y".
 - Never include text, labels, or callouts in your description — the image must be text-free.
+- image_caption must be a concise, standalone caption suitable for display below the image, 
+  reflecting the content of the image. The captions should not be of the form  
+  "This image shows..." or "A diagram of..." — just the informative content, e.g. 
+  "The water cycle", "Parts of a plant cell". 
+  If requires_image is false, image_caption should be an empty string.
 """
 
 _FENCE_RE = re.compile(r"^```[a-z]*\n(.*?)\n?```$", re.DOTALL)
@@ -92,6 +106,7 @@ def _parse_assessment(raw: str) -> ParagraphAssessment:
     return ParagraphAssessment(
         requires_image=bool(data.get("requires_image", False)),
         image_description=str(data.get("image_description", "")),
+        image_caption=str(data.get("image_caption", "")),
     )
 
 
