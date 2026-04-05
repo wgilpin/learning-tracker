@@ -45,3 +45,49 @@ class TestRenderMdCitations:
         assert '<a href="#ref-1"' in html
         # No id attrs expected — refs section is a separate template block
         assert 'id="ref-1"' not in html
+
+
+class TestRenderMdRefsSplitByBlankLine:
+    """The template splits chapter.content by '\\n\\n' before calling | md.
+
+    When the LLM puts a blank line between '## References' and the [n] lines,
+    each lands in a separate _render_md call. Both must be handled correctly.
+    """
+
+    def test_standalone_ref_lines_get_anchored_paragraphs(self) -> None:
+        """[n] lines in their own paragraph produce id='ref-N', no <a> wrapping."""
+        from api.templates_config import _render_md
+
+        html = _render_md("[1] Smith (2023). A Title. https://example.com")
+        assert 'id="ref-1"' in html
+        assert "ref-num" in html
+
+    def test_standalone_ref_lines_no_citation_linkification(self) -> None:
+        """[n] in a ref-only paragraph must NOT become a superscript <a> link."""
+        from api.templates_config import _render_md
+
+        html = _render_md("[1] Smith (2023). A Title.")
+        assert "<sup>" not in html
+        assert "citation-ref" not in html
+
+    def test_standalone_ref_lines_no_autolinked_urls(self) -> None:
+        """URLs in ref lines must not be wrapped in <a> tags by the markdown renderer."""
+        from api.templates_config import _render_md
+
+        html = _render_md("[1] (n.d.) mathbooks.unl.edu https://mathbooks.unl.edu/Contemporary/sec-graph-intro.html")
+        assert 'href="https://mathbooks.unl.edu' not in html
+
+    def test_multiple_standalone_ref_lines(self) -> None:
+        """Multiple [n] lines in one paragraph each get their own anchor."""
+        from api.templates_config import _render_md
+
+        html = _render_md("[1] First source.\n[2] Second source.")
+        assert 'id="ref-1"' in html
+        assert 'id="ref-2"' in html
+
+    def test_prose_paragraph_not_mistaken_for_refs(self) -> None:
+        """A prose paragraph that happens to start with text is not treated as refs."""
+        from api.templates_config import _render_md
+
+        html = _render_md("Some ordinary prose with no citation markers.")
+        assert 'id="ref-' not in html

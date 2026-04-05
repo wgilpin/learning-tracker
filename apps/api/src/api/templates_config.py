@@ -37,12 +37,23 @@ def _render_ref_lines(refs_text: str) -> str:
     return "\n".join(parts)
 
 
+def _is_ref_only_paragraph(text: str) -> bool:
+    """Return True if every non-empty line is a [n] reference line."""
+    lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
+    return bool(lines) and all(_REF_LINE_RE.match(ln) for ln in lines)
+
+
 def _render_md(text: str) -> str:
+    stripped = text.strip()
     # If this paragraph contains the References heading, split prose from refs
-    ref_match = _REF_SECTION_RE.match(text.strip())
+    ref_match = _REF_SECTION_RE.match(stripped)
     if ref_match:
         refs_html = _render_ref_lines(ref_match.group(1))
         return '<h2 class="references-heading">References</h2>\n' + refs_html
+    # If the LLM put a blank line between "## References" and the ref lines,
+    # they land here as a standalone paragraph — render them as anchored refs.
+    if _is_ref_only_paragraph(stripped):
+        return _render_ref_lines(stripped)
     html = _md.render(text)
     return _linkify_inline_citations(html)
 
