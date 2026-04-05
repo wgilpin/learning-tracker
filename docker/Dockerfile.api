@@ -1,17 +1,25 @@
+# Build context: ~/projects/  (two levels above the workspace root)
+# Run with: docker compose -f docker/compose.prod.yml up --build  (from learning-tracker/)
+
 FROM python:3.12-slim
 
-WORKDIR /app
+# Mirror the local workspace layout so uv path sources resolve identically
+WORKDIR /projects/document-projects/learning-tracker
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+RUN pip install uv
 
-# Copy workspace files
-COPY pyproject.toml .
-COPY packages/ packages/
-COPY apps/ apps/
+# Workspace root
+COPY document-projects/learning-tracker/pyproject.toml document-projects/learning-tracker/uv.lock ./
 
-# Install all workspace packages
+# nlp_utils (path dep: ../../nlp_utils relative to workspace root)
+COPY nlp_utils/pyproject.toml nlp_utils/README.md /projects/nlp_utils/
+COPY nlp_utils/src/ /projects/nlp_utils/src/
+
+# Workspace packages
+COPY document-projects/learning-tracker/packages/ packages/
+COPY document-projects/learning-tracker/apps/ apps/
+
 RUN uv sync --no-dev --all-packages
 
-# Run the API
-CMD ["uv", "run", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run migrations then start the app
+CMD ["sh", "-c", "uv run alembic upgrade head && uv run uvicorn api.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*"]

@@ -1,0 +1,46 @@
+name: learning-tracker
+
+services:
+
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-tracker}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-tracker}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-tracker} -d ${DB_NAME:-tracker}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  api:
+    build:
+      context: ../../..
+      dockerfile: document-projects/learning-tracker/docker/Dockerfile.api
+    restart: unless-stopped
+    env_file: ../.env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - chroma_data:/app/chroma_data
+    networks:
+      - gateway_net
+      - backend
+
+networks:
+  gateway_net:
+    external: true  # shared with Cloudflare tunnel
+  backend:
+    internal: true  # DB isolation — no external routing
+
+volumes:
+  postgres_data:
+  chroma_data:
