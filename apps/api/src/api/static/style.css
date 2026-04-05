@@ -1820,7 +1820,7 @@ button.syllabus-child-btn:hover { background: #eff6ff; color: #1d4ed8; }
 .chapter-inline .chapter-title { font-size: 1.3rem; font-weight: 700; color: #111827; margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
 .dev-regenerate-btn { background: none; border: 1px solid #fca5a5; color: #b91c1c; border-radius: 4px; padding: 0.2rem 0.5rem; cursor: pointer; font-size: 0.75rem; font-family: inherit; white-space: nowrap; flex-shrink: 0; }
 .dev-regenerate-btn:hover { background: #fef2f2; }
-.chapter-illustration { max-width: 600px; width: 100%; height: auto; display: block; margin: 1rem 0; border-radius: 6px; }
+.chapter-illustration { max-width: 600px; width: 100%; height: auto; display: block; margin: 1rem 0; border-radius: 8px; background: white; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
 .illustrations-pending { display: flex; align-items: center; gap: 0.5rem; color: #6b7280; font-size: 0.85rem; font-style: italic; margin-bottom: 1rem; }
 .chapter-inline .chapter-content { font-size: 1rem; line-height: 1.8; color: #374151; }
 .chapter-inline .chapter-content h2 { font-size: 1.05rem; font-weight: 700; color: #111827; margin: 1.75rem 0 0.5rem; }
