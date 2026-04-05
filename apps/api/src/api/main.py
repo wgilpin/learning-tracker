@@ -48,6 +48,10 @@ logging.basicConfig(
     handlers=[_handler],
 )
 
+# Keep noisy third-party loggers quiet even when LOG_LEVEL=DEBUG
+for _noisy_logger in ("markdown_it", "google", "httpx", "httpcore", "chromadb", "uvicorn.access"):
+    logging.getLogger(_noisy_logger).setLevel(logging.WARNING)
+
 
 # ---------------------------------------------------------------------------
 # Lifespan

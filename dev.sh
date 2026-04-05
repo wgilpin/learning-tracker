@@ -21,4 +21,4 @@ export DATABASE_URL=postgresql+asyncpg://tracker:tracker@localhost:5432/tracker
 
 # Run migrations then start the app
 uv run alembic upgrade head
-DEBUG=true uv run --project apps/api uvicorn api.main:create_app --factory --reload --app-dir apps/api/src
+DEBUG=true LOG_LEVEL=DEBUG uv run --project apps/api uvicorn api.main:create_app --factory --reload --app-dir apps/api/src
