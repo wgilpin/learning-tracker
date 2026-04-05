@@ -22,23 +22,36 @@
     <span class="spinner"></span> Generating illustrations. This may take a minute…
   </div>
   {% endif %}
+  {% set ns = namespace(pending_illus_index=none) %}
   {% for paragraph in chapter.content.split('\n\n') %}
   {% if paragraph.strip() %}
+  {% set is_heading = paragraph.strip().startswith('## ') %}
+  {% if is_heading and ns.pending_illus_index is not none %}
+  <img
+    src="/chapters/{{ chapter.id }}/illustrations/{{ ns.pending_illus_index }}"
+    alt="{{ illustrations[ns.pending_illus_index].image_description }}"
+    class="chapter-illustration"
+  />
+  {% set ns.pending_illus_index = none %}
+  {% endif %}
   <div class="chapter-paragraph" id="para-{{ chapter.id }}-{{ loop.index }}">
     {{ paragraph | md | safe }}
-    {% if illustrations and loop.index in illustrations %}
-    <img
-      src="/chapters/{{ chapter.id }}/illustrations/{{ loop.index }}"
-      alt="{{ illustrations[loop.index].image_description }}"
-      class="chapter-illustration"
-    />
-    {% endif %}
     <div class="margin-comments" id="comments-para-{{ chapter.id }}-{{ loop.index }}">
       {% for comment in chapter.margin_comments if comment.paragraph_anchor == 'para-' ~ chapter.id ~ '-' ~ loop.index %}
       {% include "chapters/_margin_comment.html" %}
       {% endfor %}
     </div>
   </div>
+  {% if is_heading and illustrations and loop.index in illustrations %}
+  {% set ns.pending_illus_index = loop.index %}
+  {% endif %}
   {% endif %}
   {% endfor %}
+  {% if ns.pending_illus_index is not none %}
+  <img
+    src="/chapters/{{ chapter.id }}/illustrations/{{ ns.pending_illus_index }}"
+    alt="{{ illustrations[ns.pending_illus_index].image_description }}"
+    class="chapter-illustration"
+  />
+  {% endif %}
 </div>
