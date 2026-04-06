@@ -57,7 +57,13 @@ async def get_syllabus(
     return templates.TemplateResponse(
         request,
         "topics/_syllabus_panel.html",
-        {"items": items, "topic_id": topic_id, "lesson_id": lesson, "ancestor_ids": ancestor_ids},
+        {
+            "items": items,
+            "topic_id": topic_id,
+            "topic_slug": topic.slug,
+            "lesson_id": lesson,
+            "ancestor_ids": ancestor_ids,
+        },
     )
 
 
@@ -66,6 +72,7 @@ async def get_children(
     request: Request,
     item_id: uuid.UUID,
     lesson: uuid.UUID | None = None,
+    topic_slug: str | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     children = await list_children(session, item_id)
@@ -102,6 +109,7 @@ async def get_children(
         {
             "children_with_flags": children_with_flags,
             "lesson_id": lesson,
+            "topic_slug": topic_slug,
             "ancestor_ids": ancestor_ids,
             "quiz_passed_map": quiz_passed_map,
         },
@@ -129,10 +137,11 @@ async def patch_status(
         select(AtomicChapter.syllabus_item_id).where(AtomicChapter.syllabus_item_id == item_id)
     )
     has_chapter = result.scalar_one_or_none() is not None
+    topic = await get_topic(session, item.topic_id)
     return templates.TemplateResponse(
         request,
         "syllabus/_child_item.html",
-        {"child": item, "is_leaf": True, "has_chapter": has_chapter},
+        {"child": item, "is_leaf": True, "has_chapter": has_chapter, "topic_slug": topic.slug if topic else None},
     )
 
 
@@ -188,6 +197,7 @@ async def post_syllabus_item(
             "duplicate_warning": is_dup,
             "lesson_id": None,
             "ancestor_ids": set(),
+            "topic_slug": topic.slug if topic else None,
         },
     )
 
@@ -323,6 +333,7 @@ async def patch_syllabus_item(
         select(AtomicChapter.syllabus_item_id).where(AtomicChapter.syllabus_item_id == item_id)
     )
     has_chapter = result.scalar_one_or_none() is not None
+    topic = await get_topic(session, item.topic_id)
 
     return templates.TemplateResponse(
         request,
@@ -334,6 +345,7 @@ async def patch_syllabus_item(
             "duplicate_warning": is_dup,
             "lesson_id": None,
             "ancestor_ids": set(),
+            "topic_slug": topic.slug if topic else None,
         },
     )
 
@@ -378,6 +390,7 @@ async def restore_item_row(
     )
     has_chapter = chapter_result.scalar_one_or_none() is not None
     item_read = SyllabusItemRead.model_validate(item)
+    topic = await get_topic(session, item.topic_id)
 
     return templates.TemplateResponse(
         request,
@@ -389,6 +402,7 @@ async def restore_item_row(
             "duplicate_warning": False,
             "lesson_id": None,
             "ancestor_ids": set(),
+            "topic_slug": topic.slug if topic else None,
         },
     )
 

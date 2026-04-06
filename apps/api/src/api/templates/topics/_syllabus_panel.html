@@ -3,7 +3,7 @@
   {% for item in items %}
   <li class="syllabus-section{% if item.id in ancestor_ids %} is-open{% endif %}" id="item-{{ item.id }}">
     <button class="syllabus-section-btn{% if item.id in ancestor_ids %} is-open{% endif %}"
-            hx-get="/syllabus-items/{{ item.id }}/children{% if lesson_id %}?lesson={{ lesson_id }}{% endif %}"
+            hx-get="/syllabus-items/{{ item.id }}/children{% if lesson_id %}?lesson={{ lesson_id }}&topic_slug={{ topic_slug }}{% elif topic_slug %}?topic_slug={{ topic_slug }}{% endif %}"
             hx-target="#children-{{ item.id }}"
             hx-swap="innerHTML"
             hx-on::before-request="const c=document.getElementById('children-{{ item.id }}');if(c.innerHTML.trim()){c.innerHTML='';event.preventDefault();}">
@@ -12,7 +12,7 @@
     </button>
     <ul class="syllabus-children" id="children-{{ item.id }}"
         {% if item.id in ancestor_ids %}
-        hx-get="/syllabus-items/{{ item.id }}/children?lesson={{ lesson_id }}"
+        hx-get="/syllabus-items/{{ item.id }}/children?lesson={{ lesson_id }}&topic_slug={{ topic_slug }}"
         hx-trigger="load"
         hx-swap="innerHTML"
         {% endif %}></ul>

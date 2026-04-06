@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from documentlm_core.config import settings
 from documentlm_core.db.models import SyllabusItem
+from documentlm_core.utils.slugify import unique_chapter_slug
 from documentlm_core.schemas import (
     SyllabusItemCreate,
     SyllabusItemRead,
@@ -23,17 +24,19 @@ logger = logging.getLogger(__name__)
 
 
 async def create_syllabus_item(session: AsyncSession, data: SyllabusItemCreate) -> SyllabusItemRead:
+    slug = await unique_chapter_slug(data.title, data.topic_id, session)
     item = SyllabusItem(
         id=uuid.uuid4(),
         topic_id=data.topic_id,
         parent_id=data.parent_id,
         title=data.title,
+        slug=slug,
         description=data.description,
         status=SyllabusStatus.UNRESEARCHED.value,
     )
     session.add(item)
     await session.flush()
-    logger.info("Created syllabus item id=%s topic_id=%s", item.id, data.topic_id)
+    logger.info("Created syllabus item id=%s topic_id=%s slug=%r", item.id, data.topic_id, slug)
     return _item_to_read(item)
 
 
@@ -229,6 +232,7 @@ def _item_to_read(item: SyllabusItem) -> SyllabusItemRead:
         topic_id=item.topic_id,
         parent_id=item.parent_id,
         title=item.title,
+        slug=item.slug,
         description=item.description,
         status=SyllabusStatus(item.status),
     )

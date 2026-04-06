@@ -11,7 +11,7 @@ from documentlm_core.dependencies import get_current_user_id
 from documentlm_core.schemas import TopicCreate
 from documentlm_core.services.source import list_sources
 from documentlm_core.services.syllabus import list_syllabus_items, list_top_level_items
-from documentlm_core.services.topic import create_topic, delete_topic, get_topic, list_topics
+from documentlm_core.services.topic import create_topic, delete_topic, get_topic, get_topic_by_slug, list_topics
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,17 +60,20 @@ async def post_topic(
     return RedirectResponse(url=f"/topics/{topic.id}/sources", status_code=303)
 
 
-@router.delete("/topics/{topic_id}", response_class=HTMLResponse)
+@router.delete("/topics/{topic_slug}", response_class=HTMLResponse)
 async def delete_topic_endpoint(
-    topic_id: uuid.UUID,
+    topic_slug: str,
     session: AsyncSession = Depends(get_session),
     user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Response:
-    deleted = await delete_topic(session, topic_id, user_id=user_id)
+    topic = await get_topic_by_slug(session, topic_slug, user_id=user_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    deleted = await delete_topic(session, topic.id, user_id=user_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Topic not found")
     await session.commit()
-    logger.info("Deleted topic topic_id=%s", topic_id)
+    logger.info("Deleted topic slug=%s id=%s", topic_slug, topic.id)
     return Response(status_code=200, headers={"HX-Trigger": "topicDeleted"})
 
 
@@ -79,19 +82,33 @@ async def new_topic_form(request: Request) -> Response:
     return templates.TemplateResponse(request, "topics/_new_form.html", {})
 
 
-@router.get("/topics/{topic_id}", response_class=HTMLResponse)
+@router.get("/topics/{topic_slug}", response_class=HTMLResponse)
 async def get_topic_detail(
     request: Request,
-    topic_id: uuid.UUID,
-    lesson: uuid.UUID | None = None,
+    topic_slug: str,
+    lesson: str | None = None,
     session: AsyncSession = Depends(get_session),
     user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Response:
-    topic = await get_topic(session, topic_id, user_id=user_id)
+    from documentlm_core.db.models import SyllabusItem as _SI
+    from sqlalchemy import select
+
+    topic = await get_topic_by_slug(session, topic_slug, user_id=user_id)
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
 
-    return templates.TemplateResponse(request, "topics/detail.html", {"topic": topic, "lesson_id": lesson})
+    lesson_id: uuid.UUID | None = None
+    if lesson:
+        result = await session.execute(
+            select(_SI.id).where(_SI.slug == lesson, _SI.topic_id == topic.id)
+        )
+        lesson_id = result.scalar_one_or_none()
+
+    return templates.TemplateResponse(
+        request,
+        "topics/detail.html",
+        {"topic": topic, "lesson_id": lesson_id},
+    )
 
 
 @router.get("/topics/{topic_id}/status")

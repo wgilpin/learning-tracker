@@ -14,7 +14,7 @@
           hx-get="/syllabus-items/{{ child.id }}/chapter"
           hx-target="#reading-panel"
           hx-swap="innerHTML"
-          hx-push-url="/topics/{{ child.topic_id }}?lesson={{ child.id }}">
+          hx-push-url="/topics/{{ topic_slug }}?lesson={{ child.slug }}">
     {% if not has_chapter %}<em>{{ child.title }}</em>{% else %}{{ child.title }}{% endif %}
     {% if child.description %}<span class="syllabus-child-desc">{{ child.description }}</span>{% endif %}
     {% if quiz_passed_map is defined and quiz_passed_map.get(child.id) == true %}
@@ -23,7 +23,7 @@
   </button>
   {% else %}
   <button class="syllabus-child-btn{% if child.id in ancestor_ids %} is-open{% endif %}"
-          hx-get="/syllabus-items/{{ child.id }}/children{% if lesson_id %}?lesson={{ lesson_id }}{% endif %}"
+          hx-get="/syllabus-items/{{ child.id }}/children{% if lesson_id %}?lesson={{ lesson_id }}&topic_slug={{ topic_slug }}{% elif topic_slug %}?topic_slug={{ topic_slug }}{% endif %}"
           hx-target="#children-{{ child.id }}"
           hx-swap="innerHTML">
     <span class="syllabus-chevron">▶</span>
@@ -32,7 +32,7 @@
   </button>
   <ul class="syllabus-children" id="children-{{ child.id }}"
       {% if child.id in ancestor_ids %}
-      hx-get="/syllabus-items/{{ child.id }}/children?lesson={{ lesson_id }}"
+      hx-get="/syllabus-items/{{ child.id }}/children?lesson={{ lesson_id }}&topic_slug={{ topic_slug }}"
       hx-trigger="load"
       hx-swap="innerHTML"
       {% endif %}></ul>

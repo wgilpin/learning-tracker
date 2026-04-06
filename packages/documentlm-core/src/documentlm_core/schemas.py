@@ -75,6 +75,7 @@ class TopicCreate(BaseModel):
 class TopicRead(BaseModel):
     id: UUID
     title: str
+    slug: str
     description: str | None
     created_at: datetime
 
@@ -98,6 +99,7 @@ class SyllabusItemRead(BaseModel):
     topic_id: UUID
     parent_id: UUID | None
     title: str
+    slug: str
     description: str | None
     status: SyllabusStatus
 
