@@ -9,7 +9,7 @@ WORKDIR /projects/document-projects/learning-tracker
 RUN pip install uv
 
 # Workspace root
-COPY document-projects/learning-tracker/pyproject.toml document-projects/learning-tracker/uv.lock ./
+COPY document-projects/learning-tracker/pyproject.toml document-projects/learning-tracker/uv.lock document-projects/learning-tracker/alembic.ini ./
 
 # nlp_utils (path dep: ../../nlp_utils relative to workspace root)
 COPY nlp_utils/pyproject.toml nlp_utils/README.md /projects/nlp_utils/

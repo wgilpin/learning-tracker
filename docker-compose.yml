@@ -1,14 +1,20 @@
 services:
   db:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: tracker
       POSTGRES_PASSWORD: tracker
       POSTGRES_DB: tracker
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracker -d tracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
 
   db_backup:
     image: prodrigestivill/postgres-backup-local
@@ -26,6 +32,30 @@ services:
       BACKUP_KEEP_MONTHS: 6
     volumes:
       - ./backups:/backups
+    networks:
+      - backend
+
+  learning-api:
+    build:
+      context: ../..
+      dockerfile: document-projects/learning-tracker/docker/Dockerfile.api
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - chroma_data:/projects/document-projects/learning-tracker/chroma_data
+    networks:
+      - gateway_net
+      - backend
+
+networks:
+  gateway_net:
+    external: true  # shared with Cloudflare tunnel
+  backend:
+    internal: true  # DB isolation — no external routing
 
 volumes:
   postgres_data:
+  chroma_data:
