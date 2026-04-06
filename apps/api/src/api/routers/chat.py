@@ -108,55 +108,53 @@ async def chat_stream(
         (m.content for m in reversed(messages) if m.role == "user"), ""
     )
 
-    try:
-        intent = await classify_intent(latest_user_message)
-    except Exception:
-        logger.exception("chat_stream: intent classification failed")
-        intent = "qa"
+    async def _generate() -> AsyncIterator[str]:
+        # Yield a keepalive comment immediately so the client clears its timeout
+        # while intent classification (which can take 10–15 s) runs server-side.
+        yield ": ping\n\n"
 
-    logger.info(
-        "chat_stream: topic_id=%s intent=%s chapter_id=%s", topic_id, intent, chapter_id
-    )
+        try:
+            intent = await classify_intent(latest_user_message)
+        except Exception:
+            logger.exception("chat_stream: intent classification failed")
+            intent = "qa"
 
-    if intent == "quiz" and chapter_id is not None:
+        logger.info(
+            "chat_stream: topic_id=%s intent=%s chapter_id=%s", topic_id, intent, chapter_id
+        )
 
-        async def _quiz_redirect() -> AsyncIterator[str]:
-            data = json.dumps(
-                {"quiz_redirect": f"/chapters/{chapter_id}/quiz", "done": True}
-            )
+        if intent == "quiz" and chapter_id is not None:
+            data = json.dumps({"quiz_redirect": f"/chapters/{chapter_id}/quiz", "done": True})
             yield f"data: {data}\n\n"
+            return
 
-        return StreamingResponse(_quiz_redirect(), media_type="text/event-stream")
-
-    if intent == "extend_syllabus":
-        if topic_id in _extending_topics:
-
-            async def _already_extending() -> AsyncIterator[str]:
+        if intent == "extend_syllabus":
+            if topic_id in _extending_topics:
                 msg = "I'm already extending the syllabus. Please wait for it to finish."
                 yield f"data: {json.dumps({'chunk': msg, 'done': False})}\n\n"
                 yield f"data: {json.dumps({'done': True})}\n\n"
-
-            return StreamingResponse(_already_extending(), media_type="text/event-stream")
-
-        async def _confirm_sse() -> AsyncIterator[str]:
+                return
             msg = f'I can extend the syllabus based on: "{latest_user_message}". Shall I proceed?'
             yield f"data: {json.dumps({'chunk': msg, 'done': False})}\n\n"
             yield f"data: {json.dumps({'syllabus_extend_confirm': True, 'extension_prompt': latest_user_message, 'done': True})}\n\n"
+            return
 
-        return StreamingResponse(_confirm_sse(), media_type="text/event-stream")
+        try:
+            if intent == "socratic":
+                chunks = stream_socratic_response(messages, topic_id, session)
+            elif intent == "expand":
+                chunks = stream_expand_response(messages, topic_id, session)
+            else:
+                chunks = stream_qa_response(messages, topic_id, session)
 
-    try:
-        if intent == "socratic":
-            chunks = stream_socratic_response(messages, topic_id, session)
-        elif intent == "expand":
-            chunks = stream_expand_response(messages, topic_id, session)
-        else:
-            chunks = stream_qa_response(messages, topic_id, session)
+            async for sse_chunk in _sse_stream(chunks):
+                yield sse_chunk
+        except Exception:
+            logger.exception("chat_stream: agent streaming failed for topic_id=%s", topic_id)
+            yield f"data: {json.dumps({'chunk': 'Sorry, something went wrong. Please try again.', 'done': False})}\n\n"
+            yield f"data: {json.dumps({'done': True})}\n\n"
 
-        return StreamingResponse(_sse_stream(chunks), media_type="text/event-stream")
-    except Exception as exc:
-        logger.exception("chat_stream: agent streaming failed for topic_id=%s", topic_id)
-        raise HTTPException(status_code=500, detail="Streaming failed") from exc
+    return StreamingResponse(_generate(), media_type="text/event-stream")
 
 
 # ---------------------------------------------------------------------------

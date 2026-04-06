@@ -37,9 +37,11 @@ Respond with exactly one word: quiz, socratic, expand, extend_syllabus, or qa. N
 
 _QA_INSTRUCTION = """You are a knowledgeable academic tutor answering questions about a topic.
 
-You are given relevant excerpts from the topic's source material and a conversation history.
-Answer the student's question using only the provided source material.
-If the source material does not cover the question, say so honestly — do not fabricate.
+You are given numbered source excerpts and a conversation history.
+Answer the student's question directly and naturally — do NOT open with phrases like
+"Based on the provided source material" or "According to the source material".
+If you cite a specific excerpt, use inline notation like "According to [2]..." or just "[2]".
+If the excerpts do not cover the question, say so honestly — do not fabricate.
 Keep answers clear and concise. Use markdown for structure when helpful.
 """
 
@@ -51,7 +53,7 @@ Rules:
 - Follow the student's answer closely: probe the gap in their understanding, not a script.
 - If the student demonstrates clear understanding of the concept, advance to a harder question or
   acknowledge mastery.
-- Use the provided source material as the basis for your questions.
+- Base your questions on the numbered source excerpts provided.
 - Keep your response focused: one question, briefly framed.
 """
 
@@ -59,8 +61,8 @@ _EXPAND_INSTRUCTION = """You are an academic tutor providing enriched explanatio
 
 The student wants to explore a concept more deeply.
 Extract the key concept from their message and provide a richer, more detailed explanation
-drawing on the provided source material.
-If the source material does not cover the concept, say so and offer what you can from general
+drawing on the numbered source excerpts.
+If the excerpts do not cover the concept, say so and offer what you can from general
 knowledge, clearly labelling it as such.
 
 Use markdown for structure. Be thorough but not padded.
@@ -144,8 +146,10 @@ def _build_conversation_prompt(messages: list[ChatMessage]) -> str:
 def _build_source_context(chunk_pairs: list[tuple[str, uuid.UUID]]) -> str:
     if not chunk_pairs:
         return ""
-    excerpts = "\n\n---\n\n".join(text for text, _ in chunk_pairs[:8])
-    return f"Source material excerpts:\n\n{excerpts}"
+    numbered = "\n\n---\n\n".join(
+        f"[{i + 1}] {text}" for i, (text, _) in enumerate(chunk_pairs[:8])
+    )
+    return f"Source excerpts:\n\n{numbered}"
 
 
 async def classify_intent(
