@@ -17,7 +17,7 @@ set +a
 
 export DEV_PASSWORD=devPassword1234
 # Override DB host for local dev — .env uses 'db' (Docker service name) for prod
-export DATABASE_URL=postgresql+asyncpg://tracker:tracker@localhost:5432/tracker
+export DATABASE_URL=postgresql+asyncpg://tracker:tracker@localhost:5435/tracker
 
 # Run migrations then start the app
 uv run alembic upgrade head

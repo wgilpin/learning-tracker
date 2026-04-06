@@ -1,6 +1,6 @@
 services:
   db:
-    image: pgvector/pgvector:pg16
+    image: postgres:16
     environment:
       POSTGRES_USER: tracker
       POSTGRES_PASSWORD: tracker
@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
 
   db_backup:
     image: prodrigestivill/postgres-backup-local
@@ -28,4 +28,4 @@ services:
       - ./backups:/backups
 
 volumes:
-  pgdata:
+  postgres_data:
