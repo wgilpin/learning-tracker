@@ -9,8 +9,6 @@ BUILD_CONTEXT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 cd "$SCRIPT_DIR"
 
-echo "==> Pulling latest changes"
-git pull
 
 echo "==> Building and restarting services"
 docker compose -f "$COMPOSE_FILE" build --build-arg BUILDKIT_INLINE_CACHE=1
