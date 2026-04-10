@@ -147,7 +147,7 @@ async def post_generate(
     logger.info(
         "Queued generation for topic_id=%s primary_sources=%d", topic_id, len(primary_sources)
     )
-    return RedirectResponse(url=f"/topics/{topic_id}", status_code=303)
+    return RedirectResponse(url=f"/topics/{topic.slug}", status_code=303)
 
 
 async def _run_syllabus_architect(
