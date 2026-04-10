@@ -108,6 +108,14 @@
         <h2>Added sources</h2>
         <form method="post" action="/topics/{{ topic.id }}/generate"
               id="generate-form">
+          <div class="form-group">
+            <label for="generate-level">Level</label>
+            <select id="generate-level" name="level">
+              <option value="beginner" {% if topic.level == 'beginner' %}selected{% endif %}>Beginner</option>
+              <option value="intermediate" {% if topic.level != 'beginner' and topic.level != 'advanced' %}selected{% endif %}>Intermediate</option>
+              <option value="advanced" {% if topic.level == 'advanced' %}selected{% endif %}>Advanced</option>
+            </select>
+          </div>
           <button type="submit" class="btn btn-cta" id="generate-btn">
             Generate syllabus →
           </button>

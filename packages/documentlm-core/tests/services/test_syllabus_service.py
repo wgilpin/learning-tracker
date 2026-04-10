@@ -87,6 +87,7 @@ async def test_update_syllabus_item_title() -> None:
     mock_item.topic_id = uuid.uuid4()
     mock_item.parent_id = None
     mock_item.title = "Old Title"
+    mock_item.slug = "old-title"
     mock_item.description = None
     mock_item.status = "UNRESEARCHED"
 
@@ -119,6 +120,7 @@ async def test_update_syllabus_item_description() -> None:
     mock_item.topic_id = uuid.uuid4()
     mock_item.parent_id = None
     mock_item.title = "My Chapter"
+    mock_item.slug = "my-chapter"
     mock_item.description = None
     mock_item.status = "UNRESEARCHED"
 

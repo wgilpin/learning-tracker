@@ -18,6 +18,22 @@ logger = logging.getLogger(__name__)
 
 _APP_NAME = "syllabus_architect"
 
+_LEVEL_GUIDANCE: dict[str, str] = {
+    "beginner": (
+        "a complete beginner with no prior knowledge. "
+        "Build from first principles, avoid heavy jargon, and sequence concepts "
+        "so each one follows naturally from the last."
+    ),
+    "intermediate": (
+        "a learner with some background knowledge. "
+        "Assume familiarity with fundamentals and build on them meaningfully."
+    ),
+    "advanced": (
+        "an expert or specialist. Assume strong prior knowledge; "
+        "apply rigorous treatment, nuanced distinctions, and include cutting-edge topics."
+    ),
+}
+
 _EXTENDER_INSTRUCTION = """You are an academic curriculum designer extending an existing syllabus.
 Given the topic, an extension request, and existing section titles, generate ONLY NEW sections.
 
@@ -91,6 +107,7 @@ async def run_syllabus_architect(
     topic_title: str,
     tools: SyllabusToolsProtocol,
     primary_source_texts: list[str] | None = None,
+    level: str = "intermediate",
 ) -> list[uuid.UUID]:
     logger.info(
         "Syllabus Architect starting for topic_id=%s title=%r primary_sources=%d",
@@ -109,7 +126,10 @@ async def run_syllabus_architect(
     session = await session_service.create_session(app_name=_APP_NAME, user_id="system")
     runner = Runner(agent=agent, app_name=_APP_NAME, session_service=session_service)
 
-    # Build user message — inject primary source content when provided
+    # Build user message — inject level guidance and optional primary source content
+    level_description = _LEVEL_GUIDANCE.get(level, _LEVEL_GUIDANCE["intermediate"])
+    level_line = f"Target audience: {level_description}"
+
     if primary_source_texts:
         if len(primary_source_texts) == 1:
             source_block = (
@@ -127,10 +147,11 @@ async def run_syllabus_architect(
             )
         prompt = (
             f"Generate a syllabus for the topic: {topic_title}\n\n"
+            f"{level_line}\n\n"
             f"{source_block}"
         )
     else:
-        prompt = f"Generate a syllabus for the topic: {topic_title}"
+        prompt = f"Generate a syllabus for the topic: {topic_title}\n\n{level_line}"
 
     user_message = genai_types.Content(
         role="user",
@@ -214,6 +235,7 @@ async def run_syllabus_extender(
     extension_prompt: str,
     existing_section_titles: list[str],
     tools: SyllabusToolsProtocol,
+    level: str = "intermediate",
 ) -> list[uuid.UUID]:
     logger.info(
         "Syllabus Extender starting for topic_id=%s prompt=%r existing=%d",
@@ -232,9 +254,11 @@ async def run_syllabus_extender(
     session = await session_service.create_session(app_name=_APP_NAME, user_id="system")
     runner = Runner(agent=agent, app_name=_APP_NAME, session_service=session_service)
 
+    level_description = _LEVEL_GUIDANCE.get(level, _LEVEL_GUIDANCE["intermediate"])
     existing_block = "\n".join(f"- {t}" for t in existing_section_titles)
     prompt = (
         f"Extend the syllabus for: {topic_title}\n\n"
+        f"Target audience: {level_description}\n\n"
         f"Extension request: {extension_prompt}\n\n"
         f"Existing sections (do NOT duplicate):\n{existing_block}"
     )

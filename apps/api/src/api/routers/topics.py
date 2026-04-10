@@ -11,7 +11,7 @@ from documentlm_core.dependencies import get_current_user_id
 from documentlm_core.schemas import TopicCreate
 from documentlm_core.services.source import list_sources
 from documentlm_core.services.syllabus import list_syllabus_items, list_top_level_items
-from documentlm_core.services.topic import create_topic, delete_topic, get_topic, get_topic_by_slug, list_topics
+from documentlm_core.services.topic import create_topic, delete_topic, get_topic, get_topic_by_slug, list_topics, update_topic_level
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,6 +45,7 @@ async def post_topic(
     background_tasks: BackgroundTasks,
     title: str = Form(...),
     description: str | None = Form(default=None),
+    level: str = Form(default="intermediate"),
     session: AsyncSession = Depends(get_session),
     user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Response:
@@ -52,7 +53,7 @@ async def post_topic(
         raise HTTPException(status_code=422, detail="title is required")
 
     topic = await create_topic(
-        session, TopicCreate(title=title.strip(), description=description), user_id=user_id
+        session, TopicCreate(title=title.strip(), description=description, level=level), user_id=user_id
     )
     await session.commit()
 
@@ -130,6 +131,7 @@ async def topic_status(
 async def post_generate(
     background_tasks: BackgroundTasks,
     topic_id: uuid.UUID,
+    level: str | None = Form(default=None),
     session: AsyncSession = Depends(get_session),
     user_id: uuid.UUID = Depends(get_current_user_id),
 ) -> Response:
@@ -138,10 +140,17 @@ async def post_generate(
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
 
+    # If the user changed the level on the intake page, persist it
+    if level and level != topic.level:
+        await update_topic_level(session, topic_id, level, user_id=user_id)
+        await session.commit()
+
+    effective_level = level or topic.level or "intermediate"
+
     primary_sources = await list_sources(session, topic_id, primary_only=True)
     primary_texts = [s.content for s in primary_sources if s.content]
 
-    background_tasks.add_task(_run_syllabus_architect, topic_id, topic.title, primary_texts)
+    background_tasks.add_task(_run_syllabus_architect, topic_id, topic.title, primary_texts, effective_level)
     background_tasks.add_task(_run_academic_scout, topic_id, topic.title)
 
     logger.info(
@@ -154,6 +163,7 @@ async def _run_syllabus_architect(
     topic_id: uuid.UUID,
     topic_title: str,
     primary_source_texts: list[str] | None = None,
+    level: str = "intermediate",
 ) -> None:
     """Background task: run Syllabus Architect and persist items."""
     from documentlm_core.agents.syllabus_architect import run_syllabus_architect
@@ -189,7 +199,7 @@ async def _run_syllabus_architect(
     async with AsyncSessionFactory() as session:
         tools = _DBTools(session)
         try:
-            await run_syllabus_architect(topic_id, topic_title, tools, primary_source_texts)
+            await run_syllabus_architect(topic_id, topic_title, tools, primary_source_texts, level)
             await session.commit()
             logger.info("Syllabus generation complete for topic_id=%s", topic_id)
         except Exception:
@@ -216,6 +226,7 @@ async def _run_syllabus_extender(
     topic_title: str,
     extension_prompt: str,
     existing_section_titles: list[str],
+    level: str = "intermediate",
 ) -> None:
     """Background task: run Syllabus Extender and persist new items."""
     from documentlm_core.agents.syllabus_architect import run_syllabus_extender
@@ -250,7 +261,7 @@ async def _run_syllabus_extender(
         tools = _DBTools(session)
         try:
             await run_syllabus_extender(
-                topic_id, topic_title, extension_prompt, existing_section_titles, tools
+                topic_id, topic_title, extension_prompt, existing_section_titles, tools, level
             )
             await session.commit()
             logger.info("Syllabus extension complete for topic_id=%s", topic_id)
@@ -281,7 +292,9 @@ async def post_extend_syllabus(
 
     _extending_topics.add(topic_id)
     asyncio.create_task(
-        _run_syllabus_extender(topic_id, topic.title, extension_prompt.strip(), existing_titles)
+        _run_syllabus_extender(
+            topic_id, topic.title, extension_prompt.strip(), existing_titles, topic.level or "intermediate"
+        )
     )
 
     logger.info("Queued syllabus extension for topic_id=%s prompt=%r", topic_id, extension_prompt)

@@ -70,6 +70,7 @@ class CommentStatus(StrEnum):
 class TopicCreate(BaseModel):
     title: str
     description: str | None = None
+    level: str = "intermediate"
 
 
 class TopicRead(BaseModel):
@@ -77,6 +78,7 @@ class TopicRead(BaseModel):
     title: str
     slug: str
     description: str | None
+    level: str | None
     created_at: datetime
 
     model_config = {"from_attributes": True}

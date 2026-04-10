@@ -25,6 +25,7 @@ async def create_topic(
         title=data.title,
         slug=slug,
         description=data.description,
+        level=data.level,
     )
     session.add(topic)
     await session.flush()
@@ -85,11 +86,28 @@ async def delete_topic(
     return True
 
 
+async def update_topic_level(
+    session: AsyncSession, topic_id: uuid.UUID, level: str, user_id: uuid.UUID | None = None
+) -> bool:
+    """Update the level field of a topic. Returns True if found and updated."""
+    stmt = select(Topic).where(Topic.id == topic_id)
+    if user_id is not None:
+        stmt = stmt.where(Topic.user_id == user_id)
+    result = await session.execute(stmt)
+    topic = result.scalar_one_or_none()
+    if topic is None:
+        return False
+    topic.level = level
+    await session.flush()
+    return True
+
+
 def _to_read(topic: Topic) -> TopicRead:
     return TopicRead(
         id=topic.id,
         title=topic.title,
         slug=topic.slug,
         description=topic.description,
+        level=topic.level,
         created_at=topic.created_at,
     )

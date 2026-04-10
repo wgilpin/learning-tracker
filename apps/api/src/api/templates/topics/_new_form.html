@@ -7,6 +7,14 @@
     <label for="description">Description <span class="optional">(optional)</span></label>
     <textarea id="description" name="description" rows="3" placeholder="What do you want to learn?"></textarea>
   </div>
+  <div class="form-group">
+    <label for="level">Level</label>
+    <select id="level" name="level">
+      <option value="beginner">Beginner — build from first principles</option>
+      <option value="intermediate" selected>Intermediate — some background assumed</option>
+      <option value="advanced">Advanced — expert treatment</option>
+    </select>
+  </div>
   <div class="form-actions">
     <button type="submit" class="btn btn-primary">Create Topic</button>
     <button type="button" class="btn btn-secondary"
