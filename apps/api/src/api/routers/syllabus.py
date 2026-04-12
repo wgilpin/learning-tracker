@@ -145,6 +145,41 @@ async def patch_status(
     )
 
 
+@router.get("/syllabus-items/{item_id}/child-render", response_class=HTMLResponse)
+async def render_child_item(
+    request: Request,
+    item_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    from documentlm_core.db.models import SyllabusItem as _SI
+
+    item_result = await session.execute(select(_SI).where(_SI.id == item_id))
+    item = item_result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    chapter_result = await session.execute(
+        select(AtomicChapter).where(AtomicChapter.syllabus_item_id == item_id)
+    )
+    chapter = chapter_result.scalar_one_or_none()
+    has_chapter = chapter is not None
+    quiz_passed_map: dict[uuid.UUID, bool | None] = {item_id: chapter.quiz_passed} if chapter else {}
+    item_read = SyllabusItemRead.model_validate(item)
+    topic = await get_topic(session, item.topic_id)
+
+    return templates.TemplateResponse(
+        request,
+        "syllabus/_child_item.html",
+        {
+            "child": item_read,
+            "is_leaf": True,
+            "has_chapter": has_chapter,
+            "topic_slug": topic.slug if topic else None,
+            "quiz_passed_map": quiz_passed_map,
+        },
+    )
+
+
 @router.post("/topics/{topic_id}/syllabus-items", response_class=HTMLResponse)
 async def post_syllabus_item(
     request: Request,

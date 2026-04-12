@@ -164,11 +164,20 @@
     chatLoading.style.display = 'none';
   }
 
-  // Sync the real AtomicChapter ID into chatPanel after the reading panel loads
+  // Sync the real AtomicChapter ID into chatPanel after the reading panel loads.
+  // Uses a chapter-ID sentinel so polling elements inside the reading panel
+  // (margin comments every 3s, status cards every 2s) don't trigger resetChat.
+  var _lastChapterId = null;
   document.getElementById('reading-panel').addEventListener('htmx:afterSettle', function () {
     var chapterEl = document.querySelector('.chapter-inline[data-chapter-id]');
+    var newChapterId = chapterEl ? chapterEl.dataset.chapterId : null;
+
+    // Only act when the displayed chapter actually changes
+    if (newChapterId === _lastChapterId) return;
+    _lastChapterId = newChapterId;
+
     if (chapterEl) {
-      chatPanel.dataset.chapterId = chapterEl.dataset.chapterId;
+      chatPanel.dataset.chapterId = newChapterId;
       chatPanel.style.display = '';
 
       // Remove italic from the syllabus item that just finished generating
@@ -185,7 +194,7 @@
     }
     resetChat();
     if (chapterEl && chapterEl.dataset.hasQuiz) {
-      var chapterId = chapterEl.dataset.chapterId;
+      var chapterId = newChapterId;
       chatSuggested.style.display = 'none';
       var quizDiv = document.createElement('div');
       quizDiv.innerHTML = '<div class="chat-loading" style="display:flex"><span class="spinner"></span><span>Loading quiz…</span></div>';
@@ -216,8 +225,10 @@
       inner.textContent = content;
     }
     div.appendChild(inner);
-    chatMessages.insertBefore(div, chatLoading);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    // Append the message then move chatLoading to the end so it stays below messages
+    chatMessages.appendChild(div);
+    chatMessages.appendChild(chatLoading);
+    requestAnimationFrame(function () { chatMessages.scrollTop = chatMessages.scrollHeight; });
     return inner;
   }
 
@@ -225,6 +236,10 @@
     e.preventDefault();
     var text = chatInput.value.trim();
     if (!text) return;
+
+    // If a quiz is currently displayed, clear it before resuming chat
+    var existingQuiz = chatMessages.querySelector('.quiz-container');
+    if (existingQuiz) existingQuiz.remove();
 
     // Hide suggested buttons after first message
     if (messages.length === 0) {
@@ -313,14 +328,18 @@
                 confirmDiv.remove();
               });
 
-              chatMessages.insertBefore(confirmDiv, chatLoading);
-              chatMessages.scrollTop = chatMessages.scrollHeight;
+              chatMessages.appendChild(confirmDiv);
+              chatMessages.appendChild(chatLoading);
+              requestAnimationFrame(function () { chatMessages.scrollTop = chatMessages.scrollHeight; });
               return;
             }
 
             if (payload.quiz_redirect) {
               chatLoading.style.display = 'none';
-              chatMessages.innerHTML = '';
+              Array.from(chatMessages.children).forEach(function (child) {
+                if (child !== chatSuggested && child !== chatLoading) chatMessages.removeChild(child);
+              });
+              chatSuggested.style.display = 'none';
               var quizDiv = document.createElement('div');
               quizDiv.innerHTML = '<div class="chat-loading" style="display:flex"><span class="spinner"></span><span>Generating quiz…</span></div>';
               quizDiv.setAttribute('hx-get', payload.quiz_redirect);
@@ -370,6 +389,25 @@
         swap: 'outerHTML',
       });
     }
+  });
+
+  // Scroll result banner into view once it has been swapped in.
+  // Use afterSettle (not afterSwap) so the new element is in the DOM.
+  document.addEventListener('htmx:afterSettle', function (evt) {
+    var banner = document.getElementById('quiz-result-banner');
+    if (banner && evt.detail && evt.detail.target && evt.detail.target.id === 'quiz-result-banner') {
+      banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
+
+  // Refresh sidebar item when a chapter is marked as mastered via quiz pass
+  document.addEventListener('chapterMastered', function (evt) {
+    var itemId = evt.detail && evt.detail.value;
+    if (!itemId) return;
+    htmx.ajax('GET', '/syllabus-items/' + itemId + '/child-render', {
+      target: '#child-' + itemId,
+      swap: 'outerHTML',
+    });
   });
 })();
 

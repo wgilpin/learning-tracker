@@ -225,10 +225,13 @@ async def post_quiz_response(
     )
 
     if result.quiz_passed is not None:
-        response.headers["HX-Trigger"] = "quizComplete"
         if result.quiz_passed:
             from documentlm_core.db.models import AtomicChapter
-            from documentlm_core.services.syllabus import mark_all_objectives_mastered
+            from documentlm_core.schemas import SyllabusItemStatusUpdate, SyllabusStatus
+            from documentlm_core.services.syllabus import (
+                mark_all_objectives_mastered,
+                update_status,
+            )
             from sqlalchemy import select as _sel
 
             chapter_row = (
@@ -236,7 +239,19 @@ async def post_quiz_response(
             ).scalar_one_or_none()
             if chapter_row is not None:
                 await mark_all_objectives_mastered(session, chapter_row.syllabus_item_id)
+                await update_status(
+                    session,
+                    chapter_row.syllabus_item_id,
+                    SyllabusItemStatusUpdate(status=SyllabusStatus.MASTERED),
+                )
                 await session.commit()
+                response.headers["HX-Trigger"] = json.dumps(
+                    {"quizComplete": None, "chapterMastered": str(chapter_row.syllabus_item_id)}
+                )
+            else:
+                response.headers["HX-Trigger"] = "quizComplete"
+        else:
+            response.headers["HX-Trigger"] = "quizComplete"
 
     return response
 
@@ -273,6 +288,8 @@ async def get_quiz_result(
         if (chapter.quiz_user_responses or [])[i] == q["correct_index"]
     )
 
+    percent = round(correct / total * 100) if total else 0
+
     return templates.TemplateResponse(
         request,
         "chat/_quiz_result.html",
@@ -280,6 +297,7 @@ async def get_quiz_result(
             "passed": chapter.quiz_passed,
             "correct": correct,
             "total": total,
+            "percent": percent,
             "chapter_id": chapter_id,
         },
     )

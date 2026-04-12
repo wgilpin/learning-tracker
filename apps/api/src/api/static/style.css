@@ -2160,7 +2160,7 @@ button.syllabus-child-btn:hover { background: #eff6ff; color: #1d4ed8; }
 
 .quiz-result-banner {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.5rem;
     border-radius: 8px;
     padding: 0.6rem 0.75rem;
@@ -2170,7 +2170,15 @@ button.syllabus-child-btn:hover { background: #eff6ff; color: #1d4ed8; }
 }
 .quiz-result--pass { background: #d1fae5; color: #065f46; }
 .quiz-result--fail { background: #fee2e2; color: #991b1b; }
-.quiz-result-icon { font-size: 1rem; font-variation-settings: 'FILL' 1; flex-shrink: 0; }
+.quiz-result-icon { font-size: 1.1rem; font-variation-settings: 'FILL' 1; flex-shrink: 0; margin-top: 0.1rem; }
+.quiz-result-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    flex: 1;
+}
+.quiz-result-headline { font-weight: 700; }
+.quiz-result-detail { font-weight: 400; opacity: 0.85; }
 .quiz-retake-btn {
     margin-left: auto;
     background: none;
@@ -2182,6 +2190,7 @@ button.syllabus-child-btn:hover { background: #eff6ff; color: #1d4ed8; }
     cursor: pointer;
     font-family: inherit;
     color: inherit;
+    align-self: flex-start;
 }
 .quiz-retake-btn:hover { opacity: 0.75; }
 

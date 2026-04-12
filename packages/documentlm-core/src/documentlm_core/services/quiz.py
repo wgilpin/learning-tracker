@@ -14,7 +14,7 @@ from documentlm_core.schemas import QuizAnswerResult, QuizQuestion, QuizState
 
 logger = logging.getLogger(__name__)
 
-QUIZ_PASSING_THRESHOLD: float = 0.70
+QUIZ_PASSING_THRESHOLD: float = 0.80
 
 
 def score_quiz(questions: list[QuizQuestion], responses: list[int | None]) -> float:
