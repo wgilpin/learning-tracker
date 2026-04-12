@@ -256,6 +256,7 @@ async def run_chapter_scribe(
     topic_id: uuid.UUID,
     session: AsyncSession,
     item_description: str | None = None,
+    learning_objectives: list[dict] | None = None,
 ) -> ChapterDraft:
     logger.info("Chapter Scribe starting for item_id=%s title=%r", item_id, item_title)
     from documentlm_core.db.models import Source
@@ -315,6 +316,16 @@ async def run_chapter_scribe(
     if item_description:
         topic_line += f"\nDescription: {item_description}"
     prompt_parts = [topic_line]
+
+    if learning_objectives:
+        obj_lines = "\n".join(
+            f"- [{o.get('bloom_level', '')}] {o.get('text', '')}"
+            for o in learning_objectives
+        )
+        prompt_parts.append(
+            f"Learning objectives for this chapter (ensure the content enables students to "
+            f"achieve each of these):\n{obj_lines}"
+        )
 
     if sources:
         # Group chunks by source

@@ -126,6 +126,10 @@ class SyllabusItem(Base):
     slug: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="UNRESEARCHED")
+    # Each element: {"text": "...", "bloom_level": "remember|understand|apply|analyse|evaluate|create"}
+    learning_objectives: Mapped[list | None] = mapped_column(JSON, nullable=True, default=None)
+    # Parallel list of booleans — True when the corresponding objective is assessed as mastered
+    objectives_mastered: Mapped[list | None] = mapped_column(JSON, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow
     )

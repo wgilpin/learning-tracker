@@ -2205,3 +2205,20 @@ button.syllabus-child-btn:hover { background: #eff6ff; color: #1d4ed8; }
 .generation-cost strong {
     font-weight: normal;
 }
+
+/* Learning objectives checklist */
+.learning-objectives { margin-bottom: 1.5rem; padding: 1rem 1.25rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; }
+.objectives-heading { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; margin: 0 0 0.6rem; }
+.objectives-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.objective { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.875rem; color: #374151; }
+.objective--mastered { color: #6b7280; text-decoration: line-through; text-decoration-color: #9ca3af; }
+.objective-check { font-size: 0.85rem; width: 1rem; flex-shrink: 0; }
+.objective--mastered .objective-check { color: #16a34a; }
+.objective-text { flex: 1; }
+.objective-level { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.1rem 0.35rem; border-radius: 3px; flex-shrink: 0; }
+.bloom-remember    { background: #eff6ff; color: #1d4ed8; }
+.bloom-understand  { background: #f0fdf4; color: #15803d; }
+.bloom-apply       { background: #fff7ed; color: #c2410c; }
+.bloom-analyse     { background: #fdf4ff; color: #7e22ce; }
+.bloom-evaluate    { background: #fefce8; color: #a16207; }
+.bloom-create      { background: #fdf2f8; color: #be185d; }

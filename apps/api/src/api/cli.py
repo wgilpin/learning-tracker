@@ -4,6 +4,7 @@ Usage (from repo root):
     uv run manage invite
     uv run manage reset-password user@example.com <new-password>
     uv run manage deactivate-user user@example.com
+    uv run manage migrate-data [--list] [--run NAME]
 """
 
 from __future__ import annotations
@@ -79,6 +80,24 @@ async def _deactivate_user(email: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Subcommand: migrate-data
+# ---------------------------------------------------------------------------
+
+
+async def _migrate_data(list_only: bool, run_name: str | None) -> None:
+    from documentlm_core.data_migration_runner import list_migrations, run_migrations
+
+    if list_only:
+        list_migrations()
+        return
+
+    from documentlm_core.db.session import AsyncSessionFactory
+
+    async with AsyncSessionFactory() as session:
+        await run_migrations(session, name=run_name)
+
+
+# ---------------------------------------------------------------------------
 # Entry-point
 # ---------------------------------------------------------------------------
 
@@ -100,6 +119,19 @@ def main() -> None:
 
     du = subparsers.add_parser("deactivate-user", help="Deactivate a user account")
     du.add_argument("email", help="Email of the user to deactivate")
+
+    md = subparsers.add_parser(
+        "migrate-data",
+        help="Run pending data migrations (backfills, AI-generated content, etc.)",
+    )
+    md.add_argument(
+        "--list", action="store_true", dest="list_only",
+        help="List all migrations with their applied/pending status",
+    )
+    md.add_argument(
+        "--run", metavar="NAME", dest="run_name", default=None,
+        help="Run a specific migration by name (e.g. 001_backfill_learning_objectives)",
+    )
 
     args = parser.parse_args()
 
@@ -125,6 +157,14 @@ def main() -> None:
         except Exception as exc:
             print(f"Error: {exc}", file=sys.stderr)
             logger.exception("deactivate-user failed")
+            sys.exit(1)
+
+    elif args.command == "migrate-data":
+        try:
+            asyncio.run(_migrate_data(args.list_only, args.run_name))
+        except Exception as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            logger.exception("migrate-data failed")
             sys.exit(1)
 
     else:

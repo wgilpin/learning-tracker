@@ -13,6 +13,7 @@ from documentlm_core.config import settings
 from documentlm_core.db.models import SyllabusItem
 from documentlm_core.utils.slugify import unique_chapter_slug
 from documentlm_core.schemas import (
+    LearningObjective,
     SyllabusItemCreate,
     SyllabusItemRead,
     SyllabusItemStatusUpdate,
@@ -164,6 +165,20 @@ async def has_associated_content(
     return children_result.scalar_one_or_none() is not None
 
 
+async def mark_all_objectives_mastered(
+    session: AsyncSession,
+    item_id: uuid.UUID,
+) -> None:
+    """Mark every learning objective on a syllabus item as mastered."""
+    result = await session.execute(select(SyllabusItem).where(SyllabusItem.id == item_id))
+    item = result.scalar_one_or_none()
+    if item is None or not item.learning_objectives:
+        return
+    item.objectives_mastered = [True] * len(item.learning_objectives)
+    await session.flush()
+    logger.info("Marked all objectives mastered for item_id=%s", item_id)
+
+
 async def delete_syllabus_item(
     session: AsyncSession,
     item_id: uuid.UUID,
@@ -227,6 +242,9 @@ async def generate_item_description(
 
 
 def _item_to_read(item: SyllabusItem) -> SyllabusItemRead:
+    objectives = None
+    if item.learning_objectives is not None:
+        objectives = [LearningObjective(**o) for o in item.learning_objectives]
     return SyllabusItemRead(
         id=item.id,
         topic_id=item.topic_id,
@@ -235,4 +253,6 @@ def _item_to_read(item: SyllabusItem) -> SyllabusItemRead:
         slug=item.slug,
         description=item.description,
         status=SyllabusStatus(item.status),
+        learning_objectives=objectives,
+        objectives_mastered=item.objectives_mastered,
     )

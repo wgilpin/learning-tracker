@@ -90,6 +90,111 @@ Respond with ONLY valid JSON in this exact format, no other text:
 """
 
 
+_BLOOM_LEVELS_BY_TOPIC_LEVEL: dict[str, str] = {
+    "beginner": "remember and understand",
+    "intermediate": "apply and analyse",
+    "advanced": "evaluate and create",
+}
+
+_OBJECTIVES_INSTRUCTION = """You are an educational designer writing learning objectives using Bloom's Taxonomy.
+
+Given a chapter title and description, generate 2-5 learning objectives using measurable Bloom's verbs.
+
+Output ONLY valid JSON — no prose, no code fences — in this exact format:
+[
+  {
+    "text": "Objective text beginning with a measurable Bloom's verb",
+    "bloom_level": "remember"
+  }
+]
+
+Valid bloom_level values (choose the best fit): remember | understand | apply | analyse | evaluate | create
+
+Measurable verbs by level:
+- remember: define, list, recall, identify, name, state
+- understand: explain, summarise, describe, classify, paraphrase
+- apply: solve, use, demonstrate, calculate, execute, implement
+- analyse: compare, differentiate, trace, break down, distinguish, organise
+- evaluate: justify, critique, assess, judge, defend, evaluate
+- create: design, construct, synthesise, formulate, compose, produce
+
+Rules:
+- Each objective must begin with one of these verbs
+- Objectives must be specific enough that a tutor can assess them in conversation
+- Generate between 2 and 5 objectives (lean toward 3-4)
+- Output only the JSON array, nothing else"""
+
+
+async def generate_chapter_objectives(
+    topic_title: str,
+    topic_level: str,
+    item_title: str,
+    item_description: str | None,
+) -> list[dict]:
+    """Generate 2-5 Bloom's Taxonomy learning objectives for a chapter.
+
+    Returns a list of dicts with 'text' and 'bloom_level' keys.
+    On failure, returns an empty list so callers can proceed without objectives.
+    """
+    bloom_guidance = _BLOOM_LEVELS_BY_TOPIC_LEVEL.get(topic_level, "apply and analyse")
+    desc_line = f"\nDescription: {item_description}" if item_description else ""
+    prompt = (
+        f"Topic: {topic_title}\n"
+        f"Chapter: {item_title}{desc_line}\n\n"
+        f"Target audience level: {topic_level} — focus objectives at the "
+        f"{bloom_guidance} cognitive levels."
+    )
+
+    agent = Agent(
+        name="objectives_generator",
+        model=settings.gemini_model,
+        instruction=_OBJECTIVES_INSTRUCTION,
+    )
+    session_service = InMemorySessionService()
+    session = await session_service.create_session(app_name=_APP_NAME, user_id="system")
+    runner = Runner(agent=agent, app_name=_APP_NAME, session_service=session_service)
+
+    user_message = genai_types.Content(
+        role="user",
+        parts=[genai_types.Part(text=prompt)],
+    )
+
+    reply_text: str | None = None
+    async for event in runner.run_async(
+        user_id="system",
+        session_id=session.id,
+        new_message=user_message,
+    ):
+        if event.is_final_response() and event.content and event.content.parts:
+            reply_text = event.content.parts[0].text
+            break
+
+    if not reply_text:
+        logger.warning(
+            "generate_chapter_objectives: no response for item=%r — skipping", item_title
+        )
+        return []
+
+    text = reply_text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1]
+        text = text.rsplit("```", 1)[0]
+
+    try:
+        objectives = json.loads(text)
+        if not isinstance(objectives, list):
+            raise ValueError("Expected a JSON array")
+        logger.info(
+            "generate_chapter_objectives: %d objectives for %r", len(objectives), item_title
+        )
+        return objectives
+    except Exception:
+        logger.exception(
+            "generate_chapter_objectives: JSON parse failed for item=%r — skipping", item_title
+        )
+        return []
+
+
 class SyllabusToolsProtocol(Protocol):
     async def create_syllabus_item(
         self,

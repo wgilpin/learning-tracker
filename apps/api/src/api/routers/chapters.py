@@ -392,8 +392,21 @@ async def _draft_chapter_bg(
     try:
         async with AsyncSessionFactory() as session:
             try:
+                from documentlm_core.db.models import SyllabusItem
+                from sqlalchemy import select as _sel_si
+
+                item_row = (
+                    await session.execute(_sel_si(SyllabusItem).where(SyllabusItem.id == item_id))
+                ).scalar_one_or_none()
+                objectives = item_row.learning_objectives if item_row else None
+
                 draft = await run_chapter_scribe(
-                    item_id, item_title, topic_id, session, item_description=item_description
+                    item_id,
+                    item_title,
+                    topic_id,
+                    session,
+                    item_description=item_description,
+                    learning_objectives=objectives,
                 )
                 chapter = await create_chapter(
                     session,

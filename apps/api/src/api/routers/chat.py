@@ -226,6 +226,17 @@ async def post_quiz_response(
 
     if result.quiz_passed is not None:
         response.headers["HX-Trigger"] = "quizComplete"
+        if result.quiz_passed:
+            from documentlm_core.db.models import AtomicChapter
+            from documentlm_core.services.syllabus import mark_all_objectives_mastered
+            from sqlalchemy import select as _sel
+
+            chapter_row = (
+                await session.execute(_sel(AtomicChapter).where(AtomicChapter.id == chapter_id))
+            ).scalar_one_or_none()
+            if chapter_row is not None:
+                await mark_all_objectives_mastered(session, chapter_row.syllabus_item_id)
+                await session.commit()
 
     return response
 

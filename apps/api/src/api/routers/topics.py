@@ -165,7 +165,7 @@ async def _run_syllabus_architect(
     primary_source_texts: list[str] | None = None,
     level: str = "intermediate",
 ) -> None:
-    """Background task: run Syllabus Architect and persist items."""
+    """Background task: run Syllabus Architect and persist items, then generate objectives."""
     from documentlm_core.agents.syllabus_architect import run_syllabus_architect
     from documentlm_core.db.session import AsyncSessionFactory
     from documentlm_core.schemas import SyllabusItemCreate
@@ -173,7 +173,7 @@ async def _run_syllabus_architect(
     class _DBTools:
         def __init__(self, session: AsyncSession) -> None:
             self._session = session
-            self._created: list[uuid.UUID] = []
+            self._leaf_ids: list[uuid.UUID] = []
 
         async def create_syllabus_item(
             self,
@@ -193,7 +193,8 @@ async def _run_syllabus_architect(
                     parent_id=parent_id,
                 ),
             )
-            self._created.append(item.id)
+            if parent_id is not None:
+                self._leaf_ids.append(item.id)
             return item.id
 
     async with AsyncSessionFactory() as session:
@@ -204,6 +205,57 @@ async def _run_syllabus_architect(
             logger.info("Syllabus generation complete for topic_id=%s", topic_id)
         except Exception:
             logger.exception("Syllabus generation failed for topic_id=%s", topic_id)
+            await session.rollback()
+            return
+
+    # Generate learning objectives for all leaf items in parallel
+    await _run_objectives_generation(topic_id, topic_title, tools._leaf_ids, level)
+
+
+async def _run_objectives_generation(
+    topic_id: uuid.UUID,
+    topic_title: str,
+    leaf_item_ids: list[uuid.UUID],
+    level: str,
+) -> None:
+    """Generate Bloom's Taxonomy learning objectives for each leaf SyllabusItem in parallel."""
+    if not leaf_item_ids:
+        return
+
+    from documentlm_core.agents.syllabus_architect import generate_chapter_objectives
+    from documentlm_core.db.models import SyllabusItem
+    from documentlm_core.db.session import AsyncSessionFactory
+    from sqlalchemy import select
+
+    logger.info(
+        "Objectives generation starting for topic_id=%s items=%d", topic_id, len(leaf_item_ids)
+    )
+
+    async with AsyncSessionFactory() as session:
+        result = await session.execute(
+            select(SyllabusItem).where(SyllabusItem.id.in_(leaf_item_ids))
+        )
+        items = result.scalars().all()
+
+        async def _gen_for_item(item: SyllabusItem) -> None:
+            objectives = await generate_chapter_objectives(
+                topic_title=topic_title,
+                topic_level=level,
+                item_title=item.title,
+                item_description=item.description,
+            )
+            if objectives:
+                item.learning_objectives = objectives
+                item.objectives_mastered = [False] * len(objectives)
+
+        try:
+            await asyncio.gather(*[_gen_for_item(item) for item in items])
+            await session.commit()
+            logger.info(
+                "Objectives generation complete for topic_id=%s items=%d", topic_id, len(items)
+            )
+        except Exception:
+            logger.exception("Objectives generation failed for topic_id=%s", topic_id)
             await session.rollback()
 
 

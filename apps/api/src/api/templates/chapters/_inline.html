@@ -11,6 +11,21 @@
     >↻ Regenerate</button>
     {% endif %}
   </div>
+  {% if item.learning_objectives %}
+  <section class="learning-objectives">
+    <h4 class="objectives-heading">Learning Objectives</h4>
+    <ul class="objectives-list">
+      {% for obj in item.learning_objectives %}
+      {% set mastered = item.objectives_mastered and item.objectives_mastered[loop.index0] %}
+      <li class="objective{% if mastered %} objective--mastered{% endif %}">
+        <span class="objective-check" aria-hidden="true">{% if mastered %}✓{% else %}○{% endif %}</span>
+        <span class="objective-text">{{ obj['text'] }}</span>
+        <span class="objective-level bloom-{{ obj['bloom_level'] }}">{{ obj['bloom_level'] }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
   {% if illustrations_pending %}
   <div
     class="illustrations-pending"

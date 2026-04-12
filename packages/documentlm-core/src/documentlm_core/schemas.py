@@ -89,6 +89,11 @@ class TopicRead(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class LearningObjective(BaseModel):
+    text: str
+    bloom_level: str  # remember | understand | apply | analyse | evaluate | create
+
+
 class SyllabusItemCreate(BaseModel):
     topic_id: UUID
     title: str
@@ -104,6 +109,8 @@ class SyllabusItemRead(BaseModel):
     slug: str
     description: str | None
     status: SyllabusStatus
+    learning_objectives: list[LearningObjective] | None = None
+    objectives_mastered: list[bool] | None = None
 
     model_config = {"from_attributes": True}
 

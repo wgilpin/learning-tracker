@@ -32,13 +32,31 @@ def score_quiz(questions: list[QuizQuestion], responses: list[int | None]) -> fl
 async def generate_quiz_questions(
     chapter_content: str,
     n: int = 5,
+    learning_objectives: list[dict] | None = None,
 ) -> list[QuizQuestion]:
-    """Call ADK agent to generate n multiple-choice questions from chapter content."""
+    """Call ADK agent to generate n multiple-choice questions from chapter content.
+
+    If learning_objectives are provided, questions are aligned to the Bloom's level
+    of each objective so that each one is directly testable.
+    """
     from documentlm_core.agents.chat_agent import _run_agent
+
+    if learning_objectives:
+        obj_lines = "\n".join(
+            f"- [{o.get('bloom_level', 'understand')}] {o.get('text', '')}"
+            for o in learning_objectives
+        )
+        objectives_block = (
+            f"\nLearning objectives for this chapter (align questions to these, "
+            f"matching their Bloom's cognitive level):\n{obj_lines}\n"
+        )
+    else:
+        objectives_block = ""
 
     instruction = (
         "You are a quiz generator. Given a chapter excerpt, produce exactly "
-        f"{n} multiple-choice questions that test understanding of the key ideas.\n\n"
+        f"{n} multiple-choice questions that test understanding of the key ideas.\n"
+        f"{objectives_block}\n"
         "Output ONLY a JSON array with this exact structure — no prose, no markdown fences:\n"
         '[\n'
         '  {\n'
@@ -105,7 +123,13 @@ async def get_or_create_quiz(
         )
 
     logger.info("get_or_create_quiz: generating new quiz for chapter_id=%s", chapter_id)
-    questions = await generate_quiz_questions(chapter.content)
+    from documentlm_core.db.models import SyllabusItem
+    item_result = await session.execute(
+        select(SyllabusItem).where(SyllabusItem.id == chapter.syllabus_item_id)
+    )
+    item = item_result.scalar_one_or_none()
+    objectives = item.learning_objectives if item else None
+    questions = await generate_quiz_questions(chapter.content, learning_objectives=objectives)
     now = datetime.now(UTC)
 
     chapter.quiz_questions = [q.model_dump() for q in questions]
