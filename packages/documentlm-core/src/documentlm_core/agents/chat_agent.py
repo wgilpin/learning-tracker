@@ -35,18 +35,25 @@ Classify the user's latest message into exactly one of these intents:
 Respond with exactly one word: quiz, socratic, expand, extend_syllabus, or qa. Nothing else.
 """
 
-_QA_INSTRUCTION = """You are a knowledgeable academic tutor answering questions about a chapter.
+_QA_INSTRUCTION = """You are a knowledgeable academic tutor helping a student understand material.
 
-You are given the chapter the student is currently studying, followed by supplementary source
-excerpts from the broader topic. Prioritise the chapter content when answering — it is the
-primary source. Use the source excerpts only to supplement or expand beyond what the chapter
-directly covers.
+You are given:
+1. The chapter the student is currently studying
+2. Supplementary source excerpts from the broader topic
+3. The full list of chapter titles in this course
 
-Answer the student's question directly and naturally — do NOT open with phrases like
-"Based on the provided source material" or "According to the source material".
-If you cite a specific excerpt, use inline notation like "According to [2]..." or just "[2]".
-If neither the chapter nor the excerpts cover the question, say so honestly — do not fabricate.
-Keep answers clear and concise. Use markdown for structure when helpful.
+Before responding, ask yourself: is this question clearly the focus of a DIFFERENT chapter in the
+chapter list (not the current one)?
+- If YES: briefly acknowledge the question and note that it will be covered in an upcoming chapter.
+  Give at most one orienting sentence — do not explain the answer.
+- If NO: if the answer is short (1-2 sentences), answer directly. Otherwise respond Socratically —
+  ask ONE short guiding question to help the student think through the answer themselves.
+
+Rules:
+- Never give long explanations in response to a direct question.
+- Never open with "Based on the provided source material" or similar phrases.
+- If you cite a specific excerpt, use inline notation like "[2]".
+- If neither the chapter nor the excerpts cover the question, say so honestly.
 """
 
 _SOCRATIC_INSTRUCTION = """You are a Socratic tutor helping a student develop their understanding.
@@ -97,6 +104,18 @@ async def _get_chapter_context(
     item = item_result.scalar_one_or_none()
     title = item.title if item else "Chapter"
     return title, chapter.content
+
+
+async def _get_topic_chapter_titles(session: AsyncSession, topic_id: uuid.UUID) -> list[str]:
+    """Return all syllabus item titles for a topic."""
+    from documentlm_core.db.models import SyllabusItem
+
+    result = await session.execute(
+        select(SyllabusItem.title)
+        .where(SyllabusItem.topic_id == topic_id)
+        .order_by(SyllabusItem.created_at)
+    )
+    return list(result.scalars().all())
 
 
 async def _get_topic_source_ids(session: AsyncSession, topic_id: uuid.UUID) -> list[uuid.UUID]:
@@ -186,6 +205,16 @@ def _build_chapter_block(title: str, content: str) -> str:
     return f"Chapter: {title}\n\n{content[:6000]}"
 
 
+def _build_chapter_list_block(titles: list[str], current_title: str | None = None) -> str:
+    if not titles:
+        return ""
+    lines = []
+    for t in titles:
+        marker = " ← current chapter" if t == current_title else ""
+        lines.append(f"- {t}{marker}")
+    return "Course chapters:\n" + "\n".join(lines)
+
+
 async def classify_intent(
     message: str,
 ) -> Literal["quiz", "socratic", "expand", "qa", "extend_syllabus"]:
@@ -237,14 +266,22 @@ async def stream_qa_response(
         )
         return
 
+    chapter_titles = await _get_topic_chapter_titles(session, topic_id)
+    current_title = chapter_ctx[0] if chapter_ctx is not None else None
+    chapter_list_block = _build_chapter_list_block(chapter_titles, current_title)
+
     source_context = _build_source_context(chunk_pairs)
     conversation = _build_conversation_prompt(messages)
 
     if chapter_ctx is not None:
         chapter_block = _build_chapter_block(*chapter_ctx)
-        prompt = f"{chapter_block}\n\n---\n\n{source_context}\n\nConversation:\n{conversation}"
+        prompt = (
+            f"{chapter_list_block}\n\n---\n\n"
+            f"{chapter_block}\n\n---\n\n"
+            f"{source_context}\n\nConversation:\n{conversation}"
+        )
     else:
-        prompt = f"{source_context}\n\nConversation:\n{conversation}"
+        prompt = f"{chapter_list_block}\n\n---\n\n{source_context}\n\nConversation:\n{conversation}"
 
     async for chunk in _run_agent_stream(_QA_INSTRUCTION, prompt):
         yield chunk
