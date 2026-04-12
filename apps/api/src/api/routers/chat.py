@@ -141,11 +141,11 @@ async def chat_stream(
 
         try:
             if intent == "socratic":
-                chunks = stream_socratic_response(messages, topic_id, session)
+                chunks = stream_socratic_response(messages, topic_id, session, chapter_id)
             elif intent == "expand":
-                chunks = stream_expand_response(messages, topic_id, session)
+                chunks = stream_expand_response(messages, topic_id, session, chapter_id)
             else:
-                chunks = stream_qa_response(messages, topic_id, session)
+                chunks = stream_qa_response(messages, topic_id, session, chapter_id)
 
             async for sse_chunk in _sse_stream(chunks):
                 yield sse_chunk

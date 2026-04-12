@@ -35,17 +35,24 @@ Classify the user's latest message into exactly one of these intents:
 Respond with exactly one word: quiz, socratic, expand, extend_syllabus, or qa. Nothing else.
 """
 
-_QA_INSTRUCTION = """You are a knowledgeable academic tutor answering questions about a topic.
+_QA_INSTRUCTION = """You are a knowledgeable academic tutor answering questions about a chapter.
 
-You are given numbered source excerpts and a conversation history.
+You are given the chapter the student is currently studying, followed by supplementary source
+excerpts from the broader topic. Prioritise the chapter content when answering — it is the
+primary source. Use the source excerpts only to supplement or expand beyond what the chapter
+directly covers.
+
 Answer the student's question directly and naturally — do NOT open with phrases like
 "Based on the provided source material" or "According to the source material".
 If you cite a specific excerpt, use inline notation like "According to [2]..." or just "[2]".
-If the excerpts do not cover the question, say so honestly — do not fabricate.
+If neither the chapter nor the excerpts cover the question, say so honestly — do not fabricate.
 Keep answers clear and concise. Use markdown for structure when helpful.
 """
 
 _SOCRATIC_INSTRUCTION = """You are a Socratic tutor helping a student develop their understanding.
+
+You are given the chapter the student is currently studying, followed by supplementary source
+excerpts from the broader topic.
 
 Rules:
 - Ask exactly ONE question at a time — never multiple questions in one response.
@@ -53,20 +60,43 @@ Rules:
 - Follow the student's answer closely: probe the gap in their understanding, not a script.
 - If the student demonstrates clear understanding of the concept, advance to a harder question or
   acknowledge mastery.
-- Base your questions on the numbered source excerpts provided.
+- Base your questions primarily on the chapter content provided.
 - Keep your response focused: one question, briefly framed.
 """
 
 _EXPAND_INSTRUCTION = """You are an academic tutor providing enriched explanations.
 
+You are given the chapter the student is currently studying, followed by supplementary source
+excerpts from the broader topic.
+
 The student wants to explore a concept more deeply.
-Extract the key concept from their message and provide a richer, more detailed explanation
-drawing on the numbered source excerpts.
-If the excerpts do not cover the concept, say so and offer what you can from general
+Extract the key concept from their message and provide a richer, more detailed explanation.
+Draw primarily on the chapter content, then expand with the supplementary source excerpts.
+If neither covers the concept adequately, say so and offer what you can from general
 knowledge, clearly labelling it as such.
 
 Use markdown for structure. Be thorough but not padded.
 """
+
+
+async def _get_chapter_context(
+    session: AsyncSession, chapter_id: uuid.UUID
+) -> tuple[str, str] | None:
+    """Return (title, content) for a chapter, or None if not found."""
+    from documentlm_core.db.models import AtomicChapter, SyllabusItem
+
+    result = await session.execute(
+        select(AtomicChapter).where(AtomicChapter.id == chapter_id)
+    )
+    chapter = result.scalar_one_or_none()
+    if chapter is None:
+        return None
+    item_result = await session.execute(
+        select(SyllabusItem).where(SyllabusItem.id == chapter.syllabus_item_id)
+    )
+    item = item_result.scalar_one_or_none()
+    title = item.title if item else "Chapter"
+    return title, chapter.content
 
 
 async def _get_topic_source_ids(session: AsyncSession, topic_id: uuid.UUID) -> list[uuid.UUID]:
@@ -149,7 +179,11 @@ def _build_source_context(chunk_pairs: list[tuple[str, uuid.UUID]]) -> str:
     numbered = "\n\n---\n\n".join(
         f"[{i + 1}] {text}" for i, (text, _) in enumerate(chunk_pairs[:8])
     )
-    return f"Source excerpts:\n\n{numbered}"
+    return f"Source excerpts (supplementary context from the broader topic):\n\n{numbered}"
+
+
+def _build_chapter_block(title: str, content: str) -> str:
+    return f"Chapter: {title}\n\n{content[:6000]}"
 
 
 async def classify_intent(
@@ -170,9 +204,10 @@ async def stream_qa_response(
     messages: list[ChatMessage],
     topic_id: uuid.UUID,
     session: AsyncSession,
+    chapter_id: uuid.UUID | None = None,
 ) -> AsyncIterator[str]:
-    """Stream a Q&A response using ChromaDB context and conversation history."""
-    logger.info("stream_qa_response: topic_id=%s messages=%d", topic_id, len(messages))
+    """Stream a Q&A response using chapter content and ChromaDB context."""
+    logger.info("stream_qa_response: topic_id=%s chapter_id=%s messages=%d", topic_id, chapter_id, len(messages))
 
     source_ids = await _get_topic_source_ids(session, topic_id)
     chroma_client = get_chroma_client()
@@ -183,14 +218,19 @@ async def stream_qa_response(
 
     if source_ids:
         chunk_pairs = query_topic_chunks_with_sources(
-            chroma_client, source_ids, latest_question, n_results=6
+            chroma_client, source_ids, latest_question, n_results=6, max_distance=1.1
         )
         logger.debug("stream_qa_response: retrieved %d chunks from ChromaDB", len(chunk_pairs))
     else:
         chunk_pairs = []
         logger.info("stream_qa_response: no source material for topic_id=%s", topic_id)
 
-    if not chunk_pairs:
+    chapter_ctx = None
+    if chapter_id is not None:
+        chapter_ctx = await _get_chapter_context(session, chapter_id)
+        logger.debug("stream_qa_response: chapter_ctx fetched=%s", chapter_ctx is not None)
+
+    if not chunk_pairs and chapter_ctx is None:
         yield (
             "I don't have any source material for this topic yet. "
             "Please add some sources first so I can answer questions based on the material."
@@ -199,7 +239,12 @@ async def stream_qa_response(
 
     source_context = _build_source_context(chunk_pairs)
     conversation = _build_conversation_prompt(messages)
-    prompt = f"{source_context}\n\nConversation:\n{conversation}"
+
+    if chapter_ctx is not None:
+        chapter_block = _build_chapter_block(*chapter_ctx)
+        prompt = f"{chapter_block}\n\n---\n\n{source_context}\n\nConversation:\n{conversation}"
+    else:
+        prompt = f"{source_context}\n\nConversation:\n{conversation}"
 
     async for chunk in _run_agent_stream(_QA_INSTRUCTION, prompt):
         yield chunk
@@ -209,9 +254,10 @@ async def stream_socratic_response(
     messages: list[ChatMessage],
     topic_id: uuid.UUID,
     session: AsyncSession,
+    chapter_id: uuid.UUID | None = None,
 ) -> AsyncIterator[str]:
     """Stream a Socratic response — one question at a time, never corrects directly."""
-    logger.info("stream_socratic_response: topic_id=%s messages=%d", topic_id, len(messages))
+    logger.info("stream_socratic_response: topic_id=%s chapter_id=%s messages=%d", topic_id, chapter_id, len(messages))
 
     source_ids = await _get_topic_source_ids(session, topic_id)
     chroma_client = get_chroma_client()
@@ -222,14 +268,19 @@ async def stream_socratic_response(
 
     if source_ids:
         chunk_pairs = query_topic_chunks_with_sources(
-            chroma_client, source_ids, latest_question, n_results=6
+            chroma_client, source_ids, latest_question, n_results=6, max_distance=1.1
         )
         logger.debug("stream_socratic_response: retrieved %d chunks", len(chunk_pairs))
     else:
         chunk_pairs = []
         logger.info("stream_socratic_response: no source material for topic_id=%s", topic_id)
 
-    if not chunk_pairs:
+    chapter_ctx = None
+    if chapter_id is not None:
+        chapter_ctx = await _get_chapter_context(session, chapter_id)
+        logger.debug("stream_socratic_response: chapter_ctx fetched=%s", chapter_ctx is not None)
+
+    if not chunk_pairs and chapter_ctx is None:
         yield (
             "I don't have source material for this topic yet. "
             "Please add sources before starting a Socratic session."
@@ -238,10 +289,18 @@ async def stream_socratic_response(
 
     source_context = _build_source_context(chunk_pairs)
     conversation = _build_conversation_prompt(messages)
-    prompt = (
-        f"{source_context}\n\nConversation so far:\n{conversation}"
-        "\n\nAsk your next Socratic question."
-    )
+
+    if chapter_ctx is not None:
+        chapter_block = _build_chapter_block(*chapter_ctx)
+        prompt = (
+            f"{chapter_block}\n\n---\n\n{source_context}\n\n"
+            f"Conversation so far:\n{conversation}\n\nAsk your next Socratic question."
+        )
+    else:
+        prompt = (
+            f"{source_context}\n\nConversation so far:\n{conversation}"
+            "\n\nAsk your next Socratic question."
+        )
 
     async for chunk in _run_agent_stream(_SOCRATIC_INSTRUCTION, prompt):
         yield chunk
@@ -251,9 +310,10 @@ async def stream_expand_response(
     messages: list[ChatMessage],
     topic_id: uuid.UUID,
     session: AsyncSession,
+    chapter_id: uuid.UUID | None = None,
 ) -> AsyncIterator[str]:
     """Stream an enriched content expansion response."""
-    logger.info("stream_expand_response: topic_id=%s messages=%d", topic_id, len(messages))
+    logger.info("stream_expand_response: topic_id=%s chapter_id=%s messages=%d", topic_id, chapter_id, len(messages))
 
     source_ids = await _get_topic_source_ids(session, topic_id)
     chroma_client = get_chroma_client()
@@ -262,14 +322,19 @@ async def stream_expand_response(
 
     if source_ids:
         chunk_pairs = query_topic_chunks_with_sources(
-            chroma_client, source_ids, concept, n_results=8
+            chroma_client, source_ids, concept, n_results=8, max_distance=1.1
         )
         logger.debug("stream_expand_response: retrieved %d chunks", len(chunk_pairs))
     else:
         chunk_pairs = []
         logger.info("stream_expand_response: no source material for topic_id=%s", topic_id)
 
-    if not chunk_pairs:
+    chapter_ctx = None
+    if chapter_id is not None:
+        chapter_ctx = await _get_chapter_context(session, chapter_id)
+        logger.debug("stream_expand_response: chapter_ctx fetched=%s", chapter_ctx is not None)
+
+    if not chunk_pairs and chapter_ctx is None:
         yield (
             "I don't have source material for this topic yet. "
             "Please add sources before requesting content expansion."
@@ -277,7 +342,12 @@ async def stream_expand_response(
         return
 
     source_context = _build_source_context(chunk_pairs)
-    prompt = f"{source_context}\n\nStudent request: {concept}"
+
+    if chapter_ctx is not None:
+        chapter_block = _build_chapter_block(*chapter_ctx)
+        prompt = f"{chapter_block}\n\n---\n\n{source_context}\n\nStudent request: {concept}"
+    else:
+        prompt = f"{source_context}\n\nStudent request: {concept}"
 
     async for chunk in _run_agent_stream(_EXPAND_INSTRUCTION, prompt):
         yield chunk
