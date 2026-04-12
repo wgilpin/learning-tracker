@@ -1,7 +1,7 @@
 # Build context: ~/projects/  (two levels above the workspace root)
 # Run with: docker compose -f docker/compose.prod.yml up --build  (from learning-tracker/)
 
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 # Mirror the local workspace layout so uv path sources resolve identically
 WORKDIR /projects/document-projects/learning-tracker

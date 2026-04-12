@@ -2,7 +2,7 @@
 name = "documentlm-core"
 version = "0.1.0"
 description = "Shared engine: DB models, services, and ADK agents"
-requires-python = ">=3.13"
+requires-python = ">=3.13, <3.14"
 dependencies = [
     "sqlalchemy[asyncio]>=2.0",
     "alembic>=1.13",
@@ -21,7 +21,7 @@ dependencies = [
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
-    "pytest-mock>=3.14",
+    "pytest-mock",
     "mypy>=1.13",
     "ruff>=0.7",
 ]

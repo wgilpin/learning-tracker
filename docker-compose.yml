@@ -36,6 +36,7 @@ services:
       - backend
 
   learning-api:
+    container_name: learning-api
     build:
       context: ../..
       dockerfile: document-projects/learning-tracker/docker/Dockerfile.api

@@ -45,3 +45,4 @@ TODO.md
 chroma_data/
 *.db
 *.bin
+.claude/worktrees/

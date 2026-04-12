@@ -147,22 +147,24 @@ main:has(.editor-layout) {
     flex-shrink: 0;
 }
 
-/* Chat panel — right sidebar */
+/* Chat panel — fixed full-height right sidebar */
 .chat-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 340px;
+    z-index: 40; /* below site-header (z-index:50) so header overlaps top of chat */
     display: flex;
     flex-direction: column;
     background: #fff;
     border-left: 1px solid #e5e7eb;
     overflow: hidden;
-    min-height: 0;
-    position: sticky;
-    top: 64px;
-    height: calc(100dvh - 64px);
-    align-self: start;
 }
 
 .chat-panel-header {
     padding: 1.25rem 1.5rem 0.75rem;
+    padding-top: calc(64px + 1.25rem); /* clear the fixed site-header */
     border-bottom: 1px solid rgba(196, 197, 217, 0.2);
     flex-shrink: 0;
 }
@@ -1627,10 +1629,12 @@ details[open] .source-add-summary {
    ======================================================== */
 
 /* Navigation */
-.nav { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.nav { display: flex; align-items: center; width: 100%; }
+.nav-left { display: flex; align-items: center; gap: 0.5rem; }
+.nav-home { display: flex; align-items: center; color: #6b7280; text-decoration: none; transition: color 0.15s; }
+.nav-home:hover { color: #2563eb; }
+.nav-home .material-symbols-outlined { font-size: 1.3rem; }
 .nav-brand { font-weight: 700; font-size: 1.1rem; color: #2563eb; text-decoration: none; }
-.nav-links { display: flex; gap: 1rem; }
-.nav-links a { color: #374151; text-decoration: none; font-size: 0.9rem; }
 .main-content { max-width: 1600px; margin: 0 auto; padding: 2rem 1.5rem; }
 .site-footer { text-align: center; padding: 2rem; color: #9ca3af; font-size: 0.8rem; border-top: 1px solid #edeeef; margin-top: 3rem; }
 
@@ -1657,7 +1661,9 @@ details[open] .source-add-summary {
 .empty-state { color: #9ca3af; font-style: italic; }
 
 /* Topic detail layout */
-.topic-detail-columns { display: grid; grid-template-columns: 260px 1fr 340px; gap: 0; margin: 1.5rem 0; min-height: calc(100vh - 160px); }
+/* Chat panel is position:fixed so only 2 columns needed; reserve right margin for it */
+body:has(.topic-detail) .main-content { padding-right: calc(340px + 1.5rem); }
+.topic-detail-columns { display: grid; grid-template-columns: 260px 1fr; gap: 0; margin: 1.5rem 0; min-height: calc(100vh - 160px); }
 .topic-description { color: #6b7280; margin-top: 0.5rem; }
 
 
